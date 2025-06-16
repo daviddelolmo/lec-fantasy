@@ -1,0 +1,23 @@
+@use "sass:list";
+// | -------------------------------------------------------------
+// | Paddings
+// | -------------------------------------------------------------
+
+@use '../breakpoint' as *;
+@use '../space' as *;
+
+@each $space in $space-scale {
+  $nr: list.nth($space, 1);
+  $space-small: list.nth($space, 2);
+  $space-medium: list.nth($space, 3);
+
+  .padding-#{$nr} {
+    padding-top: #{$space-small};
+    padding-bottom: #{$space-small};
+
+    @include breakpoint(medium) {
+      padding-top: #{$space-medium};
+      padding-bottom: #{$space-medium};
+    }
+  }
+}

@@ -1,0 +1,19 @@
+@use "sass:list";
+@use '../breakpoint' as *;
+@use '../space' as *;
+
+@each $space in $space-scale {
+  $nr: list.nth($space, 1);
+  $space-small: list.nth($space, 2);
+  $space-medium: list.nth($space, 3);
+
+  .margin-#{$nr} {
+    margin-top: #{$space-small};
+    margin-bottom: #{$space-small};
+
+    @include breakpoint(medium) {
+      margin-top: #{$space-medium};
+      margin-bottom: #{$space-medium};
+    }
+  }
+}
