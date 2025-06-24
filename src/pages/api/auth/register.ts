@@ -18,5 +18,5 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     return redirect(`/signup?error=${encodeURIComponent(error.message)}`);
   }
 
-  return redirect('/login');
+  return redirect('/');
 };

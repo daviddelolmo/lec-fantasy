@@ -1,0 +1,245 @@
+---
+export interface Props {
+  rules?: Array<{
+    title: string;
+    description: string;
+    icon?: string;
+  }>;
+  detailsHref?: string;
+  class?: string;
+}
+
+const defaultRules = [
+  {
+    title: "Crea tu equipo",
+    description: "Selecciona jugadores reales para formar tu equipo ideal",
+    icon: "team"
+  },
+  {
+    title: "Puntuación semanal",
+    description: "Gana puntos basados en el rendimiento real de tus jugadores",
+    icon: "points"
+  },
+  {
+    title: "Intercambios",
+    description: "Cambia jugadores cada semana para optimizar tu equipo",
+    icon: "trade"
+  },
+  {
+    title: "Compite y gana",
+    description: "Enfrenta a otros managers y corona al campeón de la liga",
+    icon: "trophy"
+  }
+];
+
+const { 
+  rules = defaultRules,
+  detailsHref = "/reglas",
+  class: className = ""
+} = Astro.props;
+
+const getIconSVG = (iconType: string) => {
+  const icons = {
+    team: `<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>`,
+    points: `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>`,
+    trade: `<path d="M7 7h10v4l3-3-3-3v4H7z"></path><path d="M17 17H7v-4l-3 3 3 3v-4h10z"></path>`,
+    trophy: `<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55.47.98.97 1.21C12.04 18.72 13 20.44 13 22"></path><path d="M14 14.66V17c0 .55-.47.98-.97 1.21C11.96 18.72 11 20.44 11 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>`
+  };
+  return icons[iconType] || icons.points;
+};
+---
+
+<div class={`rules-summary ${className}`}>
+  <div class="rules-header">
+    <h2 class="rules-title">¿Cómo funciona?</h2>
+    <p class="rules-subtitle">
+      Conoce las reglas básicas del juego
+    </p>
+  </div>
+
+  <div class="rules-list">
+    {rules.map((rule, index) => (
+      <div class="rule-item">
+        <div class="rule-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <Fragment set:html={getIconSVG(rule.icon || 'points')} />
+          </svg>
+        </div>
+        <div class="rule-content">
+          <h3 class="rule-title">{rule.title}</h3>
+          <p class="rule-description">{rule.description}</p>
+        </div>
+        <div class="rule-number">{index + 1}</div>
+      </div>
+    ))}
+  </div>
+
+  <div class="rules-footer">
+    <a href={detailsHref} class="rules-link">
+      Ver reglas completas
+      <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M7 17L17 7"></path>
+        <path d="M7 7h10v10"></path>
+      </svg>
+    </a>
+  </div>
+</div>
+
+<style>
+  .rules-summary {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rules-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .rules-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    color: #1f2937;
+  }
+
+  .rules-subtitle {
+    color: #6b7280;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .rules-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .rule-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 12px;
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  .rule-item:hover {
+    background: #f0f9ff;
+    border-color: #e0f2fe;
+    transform: translateX(4px);
+  }
+
+  .rule-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .rule-icon svg {
+    width: 20px;
+    height: 20px;
+    color: white;
+  }
+
+  .rule-content {
+    flex: 1;
+  }
+
+  .rule-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem 0;
+    color: #1f2937;
+  }
+
+  .rule-description {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .rule-number {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: #3b82f6;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 3px solid white;
+  }
+
+  .rules-footer {
+    margin-top: 2rem;
+    text-align: center;
+  }
+
+  .rules-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #3b82f6;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+  }
+
+  .rules-link:hover {
+    color: #1d4ed8;
+  }
+
+  .link-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .rules-summary {
+      padding: 1.5rem;
+    }
+    
+    .rules-title {
+      font-size: 1.5rem;
+    }
+    
+    .rule-item {
+      padding: 0.75rem;
+      gap: 0.75rem;
+    }
+    
+    .rule-icon {
+      width: 36px;
+      height: 36px;
+    }
+    
+    .rule-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+</style>

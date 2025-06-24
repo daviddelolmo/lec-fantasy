@@ -9,14 +9,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const password = formData.get('password')?.toString();
 
   if (!email || !password) {
-    return redirect('/login?error=missing');
+    return redirect('/?error=missing');
   }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return redirect('/login?error=auth');
+    return redirect('/?error=auth');
   }
 
-  return redirect('/');
+  return redirect('/inicio');
 };

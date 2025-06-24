@@ -1,0 +1,154 @@
+---
+export interface Props {
+  createLeagueHref?: string;
+  joinLeagueHref?: string;
+  class?: string;
+}
+
+const { 
+  createLeagueHref = "/leagues/create",
+  joinLeagueHref = "/leagues/browse",
+  class: className = ""
+} = Astro.props;
+---
+
+<div class={`actions-panel ${className}`}>
+  <div class="actions-content">
+    <h2 class="actions-title">¿Listo para jugar?</h2>
+    <p class="actions-description">
+      Únete a la diversión creando tu propia liga o participando en una existente
+    </p>
+    
+    <div class="actions-buttons">
+      <a href={createLeagueHref} class="btn btn-primary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+          <line x1="8" y1="12" x2="16" y2="12"></line>
+        </svg>
+        Crear Liga
+      </a>
+      
+      <a href={joinLeagueHref} class="btn btn-secondary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        Unirse a Liga
+      </a>
+    </div>
+  </div>
+</div>
+
+<style>
+  .actions-panel {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    color: white;
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .actions-content {
+    text-align: center;
+  }
+
+  .actions-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 1rem 0;
+    color: white;
+  }
+
+  .actions-description {
+    font-size: 1rem;
+    margin: 0 0 2rem 0;
+    opacity: 0.9;
+    line-height: 1.5;
+  }
+
+  .actions-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .btn-primary {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+  }
+
+  .btn-primary:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-secondary {
+    background: white;
+    color: #667eea;
+    border: 2px solid white;
+  }
+
+  .btn-secondary:hover {
+    background: #f8f9ff;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .actions-panel {
+      padding: 1.5rem;
+    }
+    
+    .actions-title {
+      font-size: 1.5rem;
+    }
+    
+    .actions-description {
+      font-size: 0.9rem;
+    }
+    
+    .btn {
+      padding: 0.875rem 1.25rem;
+      font-size: 0.9rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .actions-buttons {
+      flex-direction: row;
+      justify-content: center;
+    }
+  }
+</style>

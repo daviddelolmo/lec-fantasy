@@ -1,0 +1,786 @@
+---
+import DefaultLayout from '../../layouts/DefaultLayout.astro';
+import { supabase } from '../../lib/supabase';
+
+// Debug: Log para verificar conexión
+console.log('🔍 Intentando conectar a Supabase...');
+
+// Obtener todas las ligas - consulta más simple primero
+const { data: leagues, error } = await supabase
+  .from('leagues')
+  .select('*')
+  .order('created_at', { ascending: false });
+
+// Debug: Log de resultados
+console.log('📊 Leagues data:', leagues);
+console.log('❌ Error:', error);
+
+// Si hay error, usar datos vacíos para evitar crash
+let processedLeagues = [];
+
+if (error) {
+  console.error('Error fetching leagues:', error);
+} else if (leagues) {
+  // Procesar datos de manera más segura
+  processedLeagues = leagues.map(league => ({
+    ...league,
+    participant_count: 0, // Temporal - lo calcularemos después
+    budget_in_euros: league.budget_per_user / 100,
+    can_join: league.status === 'draft',
+    creator_name: 'Cargando...' // Temporal
+  }));
+}
+
+// Separar ligas por estado
+const draftLeagues = processedLeagues.filter(league => league.status === 'draft');
+const activeLeagues = processedLeagues.filter(league => league.status === 'active');
+const finishedLeagues = processedLeagues.filter(league => league.status === 'finished');
+
+console.log('✅ Processed leagues:', processedLeagues.length);
+---
+
+<DefaultLayout title="Explorar Ligas">
+  <section class="browse-container">
+    <div class="browse-header">
+      <h1 class="page-title">Explorar Ligas</h1>
+      <p class="page-subtitle">Encuentra la liga perfecta para ti o crea una nueva</p>
+      
+      <div class="action-buttons">
+        <a href="/leagues/create" class="btn btn-primary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+          Crear Liga
+        </a>
+        <button id="refresh-btn" class="btn btn-secondary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+          </svg>
+          Actualizar
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters-section">
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">
+          Todas las ligas
+          <span class="count">{processedLeagues.length}</span>
+        </button>
+        <button class="filter-tab" data-filter="draft">
+          Disponibles
+          <span class="count">{draftLeagues.length}</span>
+        </button>
+        <button class="filter-tab" data-filter="active">
+          En curso
+          <span class="count">{activeLeagues.length}</span>
+        </button>
+        <button class="filter-tab" data-filter="finished">
+          Finalizadas
+          <span class="count">{finishedLeagues.length}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lista de ligas -->
+    <div class="leagues-grid" id="leagues-container">
+      {processedLeagues.length === 0 ? (
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 12l2 2 4-4"></path>
+              <path d="M21 12c.552 0 1-.448 1-1V5c0-.552-.448-1-1-1H3c-.552 0-1 .448-1 1v6c0 .552.448 1 1 1h18z"></path>
+              <path d="M21 16c.552 0 1-.448 1-1v-2c0-.552-.448-1-1-1H3c-.552 0-1 .448-1 1v2c0 .552.448 1 1 1h18z"></path>
+            </svg>
+          </div>
+          <h3>No hay ligas disponibles</h3>
+          <p>Sé el primero en crear una liga y comenzar la diversión</p>
+          <a href="/leagues/create" class="btn btn-primary">Crear primera liga</a>
+        </div>
+      ) : (
+        processedLeagues.map(league => (
+          <div class="league-card" data-status={league.status}>
+            <div class="league-header">
+              <div class="league-info">
+                <h3 class="league-name">{league.name}</h3>
+                <div class="league-meta">
+                  <span class="creator">Por {league.creator_name}</span>
+                  <span class="date">{new Date(league.created_at).toLocaleDateString('es-ES')}</span>
+                </div>
+              </div>
+              <div class={`status-badge status-${league.status}`}>
+                {league.status === 'draft' && 'Disponible'}
+                {league.status === 'active' && 'En curso'}
+                {league.status === 'finished' && 'Finalizada'}
+              </div>
+            </div>
+
+            {league.description && (
+              <p class="league-description">{league.description}</p>
+            )}
+
+            <div class="league-stats">
+              <div class="stat">
+                <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <span>{league.participant_count}/{league.max_users} jugadores</span>
+              </div>
+              
+              <div class="stat">
+                <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+                <span>{league.budget_in_euros.toLocaleString('es-ES')}€</span>
+              </div>
+              
+              <div class="stat">
+                <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12,6 12,12 16,14"></polyline>
+                </svg>
+                <span>{league.market_duration_hours}h mercado</span>
+              </div>
+            </div>
+
+            <div class="league-actions">
+              {league.can_join ? (
+                <button 
+                  class="btn btn-primary join-league-btn" 
+                  data-league-id={league.id}
+                  data-league-name={league.name}
+                >
+                  Unirse a la liga
+                </button>
+              ) : league.status === 'draft' ? (
+                <button class="btn btn-disabled" disabled>
+                  Liga llena
+                </button>
+              ) : (
+                <a href={`/leagues/${league.id}`} class="btn btn-secondary">
+                  Ver detalles
+                </a>
+              )}
+              
+              <a href={`/leagues/${league.id}`} class="btn btn-outline">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                Ver
+              </a>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+
+    <!-- Loading state -->
+    <div id="loading-state" class="loading-state hidden">
+      <div class="spinner"></div>
+      <p>Cargando ligas...</p>
+    </div>
+
+    <!-- Join League Modal -->
+    <div id="join-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Unirse a Liga</h3>
+          <button class="modal-close" id="close-modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>¿Estás seguro de que quieres unirte a la liga <strong id="modal-league-name"></strong>?</p>
+          <div id="modal-error" class="modal-error hidden"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="cancel-join">Cancelar</button>
+          <button class="btn btn-primary" id="confirm-join">
+            <span class="btn-text">Unirse</span>
+            <div class="btn-spinner hidden"></div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</DefaultLayout>
+
+<style>
+  .browse-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .browse-header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .page-subtitle {
+    color: #718096;
+    font-size: 1.1rem;
+    margin: 0 0 2rem 0;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Filtros */
+  .filters-section {
+    margin-bottom: 2rem;
+  }
+
+  .filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .filter-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+  }
+
+  .filter-tab:hover {
+    border-color: #cbd5e0;
+  }
+
+  .filter-tab.active {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .count {
+    background: #e2e8f0;
+    color: #4a5568;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .filter-tab.active .count {
+    background: #3b82f6;
+    color: white;
+  }
+
+  /* Grid de ligas */
+  .leagues-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .league-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .league-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .league-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+
+  .league-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0 0 0.25rem 0;
+  }
+
+  .league-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: #718096;
+  }
+
+  .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .status-draft {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .status-active {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-finished {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  .league-description {
+    color: #4a5568;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+  }
+
+  .league-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #4a5568;
+  }
+
+  .stat-icon {
+    width: 16px;
+    height: 16px;
+    color: #718096;
+  }
+
+  .league-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  /* Botones */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    flex: 1;
+  }
+
+  .btn-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  }
+
+  .btn-secondary {
+    background: #e2e8f0;
+    color: #4a5568;
+  }
+
+  .btn-secondary:hover {
+    background: #cbd5e0;
+  }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    color: #4a5568;
+  }
+
+  .btn-outline:hover {
+    border-color: #cbd5e0;
+    background: #f7fafc;
+  }
+
+  .btn-disabled {
+    background: #f7fafc;
+    color: #a0aec0;
+    cursor: not-allowed;
+  }
+
+  /* Empty state */
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    color: #718096;
+  }
+
+  .empty-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
+    color: #cbd5e0;
+  }
+
+  .empty-state h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+    color: #4a5568;
+  }
+
+  .empty-state p {
+    margin: 0 0 2rem 0;
+  }
+
+  /* Loading */
+  .loading-state {
+    text-align: center;
+    padding: 2rem;
+    color: #718096;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Modal */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 400px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #718096;
+  }
+
+  .modal-close svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .modal-body {
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .btn-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .browse-container {
+      padding: 1rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+    }
+
+    .leagues-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .filter-tabs {
+      justify-content: stretch;
+    }
+
+    .filter-tab {
+      flex: 1;
+      justify-content: center;
+    }
+
+    .league-actions {
+      flex-direction: column;
+    }
+
+    .action-buttons {
+      flex-direction: column;
+      align-items: center;
+    }
+  }
+</style>
+
+<script>
+  import { supabase } from '../../lib/supabase.js';
+
+  // Variables globales
+  let currentFilter = 'all';
+  let allLeagues = [];
+
+  // Elementos del DOM
+  const filterTabs = document.querySelectorAll('.filter-tab');
+  const leaguesContainer = document.getElementById('leagues-container');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const loadingState = document.getElementById('loading-state');
+  const joinModal = document.getElementById('join-modal');
+  const modalLeagueName = document.getElementById('modal-league-name');
+  const modalError = document.getElementById('modal-error');
+  const confirmJoinBtn = document.getElementById('confirm-join');
+  const cancelJoinBtn = document.getElementById('cancel-join');
+  const closeModalBtn = document.getElementById('close-modal');
+
+  let selectedLeagueId = null;
+
+  // Funciones
+  function showLoading() {
+    loadingState.classList.remove('hidden');
+    leaguesContainer.style.opacity = '0.5';
+  }
+
+  function hideLoading() {
+    loadingState.classList.add('hidden');
+    leaguesContainer.style.opacity = '1';
+  }
+
+  function showError(message) {
+    modalError.textContent = message;
+    modalError.classList.remove('hidden');
+  }
+
+  function hideError() {
+    modalError.classList.add('hidden');
+  }
+
+  function filterLeagues(status) {
+    const cards = document.querySelectorAll('.league-card');
+    cards.forEach(card => {
+      const cardStatus = card.getAttribute('data-status');
+      if (status === 'all' || cardStatus === status) {
+        card.style.display = 'block';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  function showJoinModal(leagueId, leagueName) {
+    selectedLeagueId = leagueId;
+    modalLeagueName.textContent = leagueName;
+    hideError();
+    joinModal.classList.remove('hidden');
+  }
+
+  function hideJoinModal() {
+    joinModal.classList.add('hidden');
+    selectedLeagueId = null;
+  }
+
+  async function joinLeague(leagueId) {
+    try {
+      const confirmBtn = document.getElementById('confirm-join');
+      const btnText = confirmBtn.querySelector('.btn-text');
+      const btnSpinner = confirmBtn.querySelector('.btn-spinner');
+      
+      // Mostrar loading
+      btnText.classList.add('hidden');
+      btnSpinner.classList.remove('hidden');
+      confirmBtn.disabled = true;
+
+      // Obtener sesión actual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        showError('Debes iniciar sesión para unirte a una liga');
+        return;
+      }
+
+      // Llamar a la API para unirse
+      const response = await fetch('/api/leagues/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ league_id: leagueId })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Éxito - recargar página
+        window.location.reload();
+      } else {
+        showError(result.error || 'Error al unirse a la liga');
+      }
+    } catch (error) {
+      console.error('Error joining league:', error);
+      showError('Error de conexión. Inténtalo de nuevo.');
+    } finally {
+      const confirmBtn = document.getElementById('confirm-join');
+      const btnText = confirmBtn.querySelector('.btn-text');
+      const btnSpinner = confirmBtn.querySelector('.btn-spinner');
+      
+      btnText.classList.remove('hidden');
+      btnSpinner.classList.add('hidden');
+      confirmBtn.disabled = false;
+    }
+  }
+
+  // Event listeners
+  filterTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Actualizar tabs activos
+      filterTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      // Filtrar ligas
+      currentFilter = tab.getAttribute('data-filter');
+      filterLeagues(currentFilter);
+    });
+  });
+
+  refreshBtn.addEventListener('click', () => {
+    window.location.reload();
+  });
+
+  // Event delegation para botones de unirse
+  leaguesContainer.addEventListener('click', (e) => {
+    if (e.target.classList.contains('join-league-btn')) {
+      const leagueId = e.target.getAttribute('data-league-id');
+      const leagueName = e.target.getAttribute('data-league-name');
+      showJoinModal(leagueId, leagueName);
+    }
+  });
+
+  // Modal events
+  confirmJoinBtn.addEventListener('click', () => {
+    if (selectedLeagueId) {
+      joinLeague(selectedLeagueId);
+    }
+  });
+
+  cancelJoinBtn.addEventListener('click', hideJoinModal);
+  closeModalBtn.addEventListener('click', hideJoinModal);
+
+  // Cerrar modal al hacer clic fuera
+  joinModal.addEventListener('click', (e) => {
+    if (e.target === joinModal) {
+      hideJoinModal();
+    }
+  });
+
+  // Cerrar modal con Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !joinModal.classList.contains('hidden')) {
+      hideJoinModal();
+    }
+  });
+</script>

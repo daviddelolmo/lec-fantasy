@@ -1,18 +1,1446 @@
 ---
-import DefaultLayout from '../layouts/DefaultLayout.astro'
+// src/pages/settings.astro
+import DefaultLayout from '../layouts/DefaultLayout.astro';
+import { supabase } from '../lib/supabase';
+
+// Verificar autenticación
+const { data: { session } } = await supabase.auth.getSession();
+
+if (!session) {
+  return Astro.redirect('/');
+}
+
+// Datos temporales del usuario - luego los conectaremos a Supabase
+const userData = {
+  id: session.user.id,
+  email: session.user.email,
+  username: "daviddelolmo",
+  fullName: "David del Olmo",
+  avatar: null,
+  bio: "",
+  location: "",
+  birthDate: "1999-08-15",
+  favoriteTeam: "KOI",
+  preferences: {
+    notifications: {
+      email: true,
+      push: true,
+      marketUpdates: true,
+      matchResults: true,
+      weeklyReports: false
+    },
+    privacy: {
+      showEmail: false,
+      showLocation: true,
+      showStats: true
+    },
+    theme: "light",
+    language: "es"
+  },
+  stats: {
+    totalLeagues: 1,
+    leaguesWon: 0,
+    totalPoints: 1429,
+    bestWeeklyScore: 267,
+  }
+};
 ---
 
-<DefaultLayout title="Settings">
-  <section>
-    <h1>Settings</h1><br>
-    <p class="size-20">Lorem ipsum dolor sit amet.</p>
-  </section>
-  <section class="margin-32">
-    <div class="space-content">
-      <div class="contents">
-        <h2>Settings overview</h2>
-        <p>Change your preferences like timezone, color palette and profile picture.</p>
+<DefaultLayout title="Configuración">
+  <div class="settings-container">
+    <!-- Settings Header -->
+    <div class="settings-header">
+      <div class="breadcrumb">
+        <a href="/inicio" class="breadcrumb-link">Inicio</a>
+        <svg class="breadcrumb-separator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9,18 15,12 9,6"></polyline>
+        </svg>
+        <span class="breadcrumb-current">Configuración</span>
+      </div>
+      
+      <h1 class="page-title">Configuración de la Cuenta</h1>
+      <p class="page-subtitle">Gestiona tu perfil, preferencias y configuración de la cuenta</p>
+    </div>
+
+    <div class="settings-content">
+      <!-- Settings Navigation -->
+      <div class="settings-nav">
+        <nav class="nav-menu">
+          <button class="nav-item active" data-section="profile">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>Perfil</span>
+          </button>
+          
+          <button class="nav-item" data-section="notifications">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span>Notificaciones</span>
+          </button>
+          
+          <button class="nav-item" data-section="privacy">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <circle cx="12" cy="16" r="1"></circle>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <span>Privacidad</span>
+          </button>
+          
+          <button class="nav-item" data-section="preferences">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Preferencias</span>
+          </button>
+          
+          <button class="nav-item" data-section="account">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            <span>Cuenta</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Settings Sections -->
+      <div class="settings-sections">
+        
+        <!-- Profile Section -->
+        <div class="settings-section active" id="profile-section">
+          <div class="section-header">
+            <h2 class="section-title">Información del Perfil</h2>
+            <p class="section-subtitle">Actualiza tu información personal y foto de perfil</p>
+          </div>
+          
+          <form class="settings-form" id="profile-form">
+            <!-- Avatar Upload -->
+            <div class="form-group avatar-group">
+              <label class="form-label">Foto de Perfil</label>
+              <div class="avatar-upload">
+                <div class="avatar-preview">
+                  <img id="avatar-img" src={userData.avatar || "/default-avatar.png"} alt="Avatar" />
+                  <div class="avatar-fallback">
+                    <span>{userData.username?.charAt(0).toUpperCase() || 'U'}</span>
+                  </div>
+                </div>
+                <div class="avatar-actions">
+                  <button type="button" class="btn btn-outline" id="upload-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7,10 12,15 17,10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Subir foto
+                  </button>
+                  <button type="button" class="btn btn-ghost" id="remove-avatar">Eliminar</button>
+                </div>
+                <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="username" class="form-label">Nombre de Usuario</label>
+                <input type="text" id="username" name="username" class="form-input" value={userData.username} required>
+                <span class="form-help">Este nombre aparecerá en las ligas</span>
+              </div>
+              
+              <div class="form-group">
+                <label for="fullName" class="form-label">Nombre Completo</label>
+                <input type="text" id="fullName" name="fullName" class="form-input" value={userData.fullName}>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" id="email" name="email" class="form-input" value={userData.email} readonly>
+              <span class="form-help">Para cambiar el email, contacta con soporte</span>
+            </div>
+
+            <div class="form-group">
+              <label for="bio" class="form-label">Biografía</label>
+              <textarea id="bio" name="bio" class="form-textarea" rows="3" placeholder="Cuéntanos algo sobre ti...">{userData.bio}</textarea>
+              <span class="form-help">Máximo 200 caracteres</span>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="location" class="form-label">Ubicación</label>
+                <input type="text" id="location" name="location" class="form-input" value={userData.location} placeholder="Ciudad, País">
+              </div>
+              
+              <div class="form-group">
+                <label for="birthDate" class="form-label">Fecha de Nacimiento</label>
+                <input type="date" id="birthDate" name="birthDate" class="form-input" value={userData.birthDate}>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="favoriteTeam" class="form-label">Equipo Favorito LEC</label>
+              <select id="favoriteTeam" name="favoriteTeam" class="form-select">
+                <option value="">Seleccionar equipo</option>
+                <option value="G2 Esports" selected={userData.favoriteTeam === 'G2 Esports'}>G2 Esports</option>
+                <option value="Fnatic" selected={userData.favoriteTeam === 'Fnatic'}>Fnatic</option>
+                <option value="MAD Lions" selected={userData.favoriteTeam === 'MAD Lions'}>MAD Lions</option>
+                <option value="BDS" selected={userData.favoriteTeam === 'BDS'}>BDS</option>
+                <option value="Team Heretics" selected={userData.favoriteTeam === 'Team Heretics'}>Team Heretics</option>
+                <option value="Team Vitality" selected={userData.favoriteTeam === 'Team Vitality'}>Team Vitality</option>
+                <option value="SK Gaming" selected={userData.favoriteTeam === 'SK Gaming'}>SK Gaming</option>
+                <option value="Giantx" selected={userData.favoriteTeam === 'Giantx'}>Giantx</option>
+                <option value="KOI" selected={userData.favoriteTeam === 'KOI'}>KOI</option>
+                <option value="Rogue" selected={userData.favoriteTeam === 'Rogue'}>Rogue</option>
+              </select>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                <span class="btn-text">Guardar Cambios</span>
+                <div class="btn-spinner hidden"></div>
+              </button>
+              <button type="button" class="btn btn-secondary" id="cancel-profile">Cancelar</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Notifications Section -->
+        <div class="settings-section" id="notifications-section">
+          <div class="section-header">
+            <h2 class="section-title">Configuración de Notificaciones</h2>
+            <p class="section-subtitle">Personaliza qué notificaciones quieres recibir</p>
+          </div>
+          
+          <form class="settings-form" id="notifications-form">
+            <div class="notification-group">
+              <h3 class="group-title">Canales de Notificación</h3>
+              
+              <div class="notification-item">
+                <div class="notification-info">
+                  <div class="notification-icon">📧</div>
+                  <div class="notification-details">
+                    <span class="notification-name">Email</span>
+                    <span class="notification-description">Recibir notificaciones por correo electrónico</span>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="emailNotifications" checked={userData.preferences.notifications.email}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              
+              <div class="notification-item">
+                <div class="notification-info">
+                  <div class="notification-icon">🔔</div>
+                  <div class="notification-details">
+                    <span class="notification-name">Push</span>
+                    <span class="notification-description">Notificaciones push en el navegador</span>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="pushNotifications" checked={userData.preferences.notifications.push}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="notification-group">
+              <h3 class="group-title">Tipos de Notificación</h3>
+              
+              <div class="notification-item">
+                <div class="notification-info">
+                  <div class="notification-icon">💰</div>
+                  <div class="notification-details">
+                    <span class="notification-name">Actualizaciones del Mercado</span>
+                    <span class="notification-description">Nuevas subastas y finalización de pujas</span>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="marketUpdates" checked={userData.preferences.notifications.marketUpdates}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              
+              <div class="notification-item">
+                <div class="notification-info">
+                  <div class="notification-icon">🎮</div>
+                  <div class="notification-details">
+                    <span class="notification-name">Resultados de Partidos</span>
+                    <span class="notification-description">Puntuaciones y resultados de jornadas</span>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="matchResults" checked={userData.preferences.notifications.matchResults}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              
+              <div class="notification-item">
+                <div class="notification-info">
+                  <div class="notification-icon">📊</div>
+                  <div class="notification-details">
+                    <span class="notification-name">Reportes Semanales</span>
+                    <span class="notification-description">Resumen semanal de rendimiento</span>
+                  </div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="weeklyReports" checked={userData.preferences.notifications.weeklyReports}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                <span class="btn-text">Guardar Preferencias</span>
+                <div class="btn-spinner hidden"></div>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Privacy Section -->
+        <div class="settings-section" id="privacy-section">
+          <div class="section-header">
+            <h2 class="section-title">Configuración de Privacidad</h2>
+            <p class="section-subtitle">Controla qué información es visible para otros usuarios</p>
+          </div>
+          
+          <form class="settings-form" id="privacy-form">
+            <div class="privacy-group">
+              <h3 class="group-title">Información Visible</h3>
+              
+              <div class="privacy-item">
+                <div class="privacy-info">
+                  <span class="privacy-name">Mostrar Email</span>
+                  <span class="privacy-description">Otros usuarios pueden ver tu dirección de email</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="showEmail" checked={userData.preferences.privacy.showEmail}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              
+              <div class="privacy-item">
+                <div class="privacy-info">
+                  <span class="privacy-name">Mostrar Ubicación</span>
+                  <span class="privacy-description">Tu ubicación aparece en tu perfil público</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="showLocation" checked={userData.preferences.privacy.showLocation}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              
+              <div class="privacy-item">
+                <div class="privacy-info">
+                  <span class="privacy-name">Mostrar Estadísticas</span>
+                  <span class="privacy-description">Tus estadísticas de fantasy son públicas</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" name="showStats" checked={userData.preferences.privacy.showStats}>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                <span class="btn-text">Guardar Configuración</span>
+                <div class="btn-spinner hidden"></div>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Preferences Section -->
+        <div class="settings-section" id="preferences-section">
+          <div class="section-header">
+            <h2 class="section-title">Preferencias de la Aplicación</h2>
+            <p class="section-subtitle">Personaliza la apariencia y comportamiento de la aplicación</p>
+          </div>
+          
+          <form class="settings-form" id="preferences-form">
+            <div class="form-group">
+              <label class="form-label">Tema</label>
+              <div class="theme-options">
+                <label class="theme-option">
+                  <input type="radio" name="theme" value="light" checked={userData.preferences.theme === 'light'}>
+                  <div class="theme-preview light">
+                    <div class="theme-header"></div>
+                    <div class="theme-content"></div>
+                  </div>
+                  <span class="theme-name">Claro</span>
+                </label>
+                
+                <label class="theme-option">
+                  <input type="radio" name="theme" value="dark" checked={userData.preferences.theme === 'dark'}>
+                  <div class="theme-preview dark">
+                    <div class="theme-header"></div>
+                    <div class="theme-content"></div>
+                  </div>
+                  <span class="theme-name">Oscuro</span>
+                </label>
+                
+                <label class="theme-option">
+                  <input type="radio" name="theme" value="auto" checked={userData.preferences.theme === 'auto'}>
+                  <div class="theme-preview auto">
+                    <div class="theme-header"></div>
+                    <div class="theme-content"></div>
+                  </div>
+                  <span class="theme-name">Automático</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="language" class="form-label">Idioma</label>
+              <select id="language" name="language" class="form-select">
+                <option value="es" selected={userData.preferences.language === 'es'}>Español</option>
+                <option value="en" selected={userData.preferences.language === 'en'}>English</option>
+              </select>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                <span class="btn-text">Aplicar Cambios</span>
+                <div class="btn-spinner hidden"></div>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Account Section -->
+        <div class="settings-section" id="account-section">
+          <div class="section-header">
+            <h2 class="section-title">Configuración de la Cuenta</h2>
+            <p class="section-subtitle">Gestiona tu cuenta y configuración de seguridad</p>
+          </div>
+          
+          <div class="account-info">
+            <div class="info-card">
+              <h3 class="card-title">Información de la Cuenta</h3>
+              <div class="account-details">
+                <div class="detail-row">
+                  <span class="detail-label">Email:</span>
+                  <span class="detail-value">{userData.email}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">ID de Usuario:</span>
+                  <span class="detail-value">{userData.id}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Cuenta creada:</span>
+                  <span class="detail-value">15 enero 2024</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="stats-card">
+              <h3 class="card-title">Estadísticas</h3>
+              <div class="stats-grid">
+                <div class="stat-item">
+                  <span class="stat-value">{userData.stats.totalLeagues}</span>
+                  <span class="stat-label">Ligas Jugadas</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value">{userData.stats.leaguesWon}</span>
+                  <span class="stat-label">Ligas Ganadas</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value">{userData.stats.totalPoints.toLocaleString()}</span>
+                  <span class="stat-label">Puntos Totales</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value">{userData.stats.bestWeeklyScore}</span>
+                  <span class="stat-label">Mejor Jornada</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="danger-zone">
+            <h3 class="danger-title">Zona de Peligro</h3>
+            <div class="danger-actions">
+              <button class="btn btn-danger" id="change-password">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <circle cx="12" cy="16" r="1"></circle>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                Cambiar Contraseña
+              </button>
+              
+              <button class="btn btn-danger-outline" id="delete-account">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3,6 5,6 21,6"></polyline>
+                  <path d="M19,6v14a2 2 0 0 1-2,2H7a2 2 0 0 1-2-2V6m3,0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Eliminar Cuenta
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </section>
+
+    <!-- Success Message -->
+    <div id="success-message" class="success-message hidden">
+      <div class="success-content">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22,4 12,14.01 9,11.01"></polyline>
+        </svg>
+        <span>Configuración guardada correctamente</span>
+      </div>
+    </div>
+  </div>
 </DefaultLayout>
+
+<style>
+  .settings-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  /* Settings Header */
+  .settings-header {
+    margin-bottom: 2rem;
+  }
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .breadcrumb-link {
+    color: #64748b;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.2s ease;
+  }
+
+  .breadcrumb-link:hover {
+    color: #3b82f6;
+  }
+
+  .breadcrumb-separator {
+    width: 16px;
+    height: 16px;
+    color: #94a3b8;
+  }
+
+  .breadcrumb-current {
+    color: #1a202c;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .page-subtitle {
+    color: #64748b;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  /* Settings Content */
+  .settings-content {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 2rem;
+  }
+
+  /* Settings Navigation */
+  .settings-nav {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 1rem;
+    height: fit-content;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .nav-item:hover {
+    background: #f8fafc;
+    color: #475569;
+  }
+
+  .nav-item.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-left: 3px solid #3b82f6;
+  }
+
+  .nav-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  /* Settings Sections */
+  .settings-sections {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .settings-section {
+    display: none;
+    padding: 2rem;
+  }
+
+  .settings-section.active {
+    display: block;
+  }
+
+  .section-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .section-subtitle {
+    color: #64748b;
+    margin: 0;
+  }
+
+  /* Forms */
+  .settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-label {
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.875rem;
+  }
+
+  .form-input,
+  .form-textarea,
+  .form-select {
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+  }
+
+  .form-input:focus,
+  .form-textarea:focus,
+  .form-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .form-input:read-only {
+    background: #f9fafb;
+    color: #6b7280;
+  }
+
+  .form-textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  .form-help {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  /* Avatar Upload */
+  .avatar-group {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #f1f5f9;
+  }
+
+  .avatar-upload {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .avatar-preview {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #e2e8f0;
+  }
+
+  .avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    font-weight: 600;
+    font-size: 1.5rem;
+  }
+
+  .avatar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: #3b82f6;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: #1d4ed8;
+  }
+
+  .btn-secondary {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+
+  .btn-secondary:hover {
+    background: #e2e8f0;
+  }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    color: #374151;
+  }
+
+  .btn-outline:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: #64748b;
+  }
+
+  .btn-ghost:hover {
+    color: #374151;
+    background: #f9fafb;
+  }
+
+  .btn-danger {
+    background: #dc2626;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background: #b91c1c;
+  }
+
+  .btn-danger-outline {
+    background: transparent;
+    border: 1px solid #dc2626;
+    color: #dc2626;
+  }
+
+  .btn-danger-outline:hover {
+    background: #fef2f2;
+  }
+
+  .btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .btn-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  /* Notifications */
+  .notification-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .group-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .notification-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #f1f5f9;
+  }
+
+  .notification-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .notification-icon {
+    font-size: 1.25rem;
+  }
+
+  .notification-details {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .notification-name {
+    font-weight: 500;
+    color: #1a202c;
+  }
+
+  .notification-description {
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+
+  /* Toggle Switch */
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+  }
+
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #cbd5e0;
+    transition: 0.3s;
+    border-radius: 24px;
+  }
+
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+
+  input:checked + .toggle-slider {
+    background-color: #3b82f6;
+  }
+
+  input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+  }
+
+  /* Privacy */
+  .privacy-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .privacy-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #f1f5f9;
+  }
+
+  .privacy-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .privacy-name {
+    font-weight: 500;
+    color: #1a202c;
+  }
+
+  .privacy-description {
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+
+  /* Theme Options */
+  .theme-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .theme-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+
+  .theme-option input {
+    display: none;
+  }
+
+  .theme-preview {
+    width: 80px;
+    height: 60px;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .theme-preview.light {
+    background: #ffffff;
+  }
+
+  .theme-preview.light .theme-header {
+    height: 20px;
+    background: #f8fafc;
+  }
+
+  .theme-preview.light .theme-content {
+    height: 40px;
+    background: #ffffff;
+  }
+
+  .theme-preview.dark {
+    background: #1f2937;
+  }
+
+  .theme-preview.dark .theme-header {
+    height: 20px;
+    background: #374151;
+  }
+
+  .theme-preview.dark .theme-content {
+    height: 40px;
+    background: #1f2937;
+  }
+
+  .theme-preview.auto {
+    background: linear-gradient(90deg, #ffffff 50%, #1f2937 50%);
+  }
+
+  .theme-preview.auto .theme-header {
+    height: 20px;
+    background: linear-gradient(90deg, #f8fafc 50%, #374151 50%);
+  }
+
+  .theme-preview.auto .theme-content {
+    height: 40px;
+    background: linear-gradient(90deg, #ffffff 50%, #1f2937 50%);
+  }
+
+  .theme-option input:checked + .theme-preview {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .theme-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  /* Account Section */
+  .account-info {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .info-card,
+  .stats-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #f1f5f9;
+  }
+
+  .card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0 0 1rem 0;
+  }
+
+  .account-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .detail-label {
+    font-weight: 500;
+    color: #64748b;
+  }
+
+  .detail-value {
+    color: #1a202c;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .stat-item {
+    text-align: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #3b82f6;
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* Danger Zone */
+  .danger-zone {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+
+  .danger-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #dc2626;
+    margin: 0 0 1rem 0;
+  }
+
+  .danger-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  /* Success Message */
+  .success-message {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+  }
+
+  .success-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #dcfce7;
+    color: #166534;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #bbf7d0;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .success-content svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .settings-container {
+      padding: 1rem;
+    }
+
+    .settings-content {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .settings-nav {
+      order: 2;
+    }
+
+    .nav-menu {
+      flex-direction: row;
+      overflow-x: auto;
+      gap: 0.5rem;
+      padding-bottom: 0.5rem;
+    }
+
+    .nav-item {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .settings-sections {
+      order: 1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .theme-options {
+      grid-template-columns: 1fr;
+    }
+
+    .avatar-upload {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .danger-actions {
+      flex-direction: column;
+    }
+
+    .success-message {
+      left: 1rem;
+      right: 1rem;
+      top: 1rem;
+    }
+
+    .nav-item span {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Settings page functionality
+  let currentSection = 'profile';
+
+  // DOM elements
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = document.querySelectorAll('.settings-section');
+  const forms = document.querySelectorAll('.settings-form');
+  const avatarInput = document.getElementById('avatar-input');
+  const avatarImg = document.getElementById('avatar-img');
+  const avatarFallback = document.querySelector('.avatar-fallback');
+  const uploadAvatarBtn = document.getElementById('upload-avatar');
+  const removeAvatarBtn = document.getElementById('remove-avatar');
+  const successMessage = document.getElementById('success-message');
+
+  // Navigation functionality
+  function switchSection(sectionId) {
+    // Update nav items
+    navItems.forEach(item => {
+      item.classList.toggle('active', item.getAttribute('data-section') === sectionId);
+    });
+
+    // Update sections
+    sections.forEach(section => {
+      section.classList.toggle('active', section.id === `${sectionId}-section`);
+    });
+
+    currentSection = sectionId;
+  }
+
+  // Avatar functionality
+  function handleAvatarUpload(file) {
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        avatarImg.src = e.target.result;
+        avatarImg.style.display = 'block';
+        avatarFallback.style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function removeAvatar() {
+    avatarImg.style.display = 'none';
+    avatarFallback.style.display = 'flex';
+    avatarInput.value = '';
+  }
+
+  // Form submission
+  async function handleFormSubmit(form, formType) {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const btnSpinner = submitBtn.querySelector('.btn-spinner');
+
+    // Show loading state
+    btnText.classList.add('hidden');
+    btnSpinner.classList.remove('hidden');
+    submitBtn.disabled = true;
+
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Show success message
+      showSuccessMessage();
+
+      // In a real app, you would send the form data to your API
+      console.log(`${formType} form submitted`);
+
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      // Handle error
+    } finally {
+      // Hide loading state
+      btnText.classList.remove('hidden');
+      btnSpinner.classList.add('hidden');
+      submitBtn.disabled = false;
+    }
+  }
+
+  // Success message
+  function showSuccessMessage() {
+    successMessage.classList.remove('hidden');
+    setTimeout(() => {
+      successMessage.classList.add('hidden');
+    }, 3000);
+  }
+
+  // Initialize page
+  function initSettings() {
+    // Check if avatar exists
+    if (!avatarImg.src || avatarImg.src.includes('default-avatar.png')) {
+      avatarImg.style.display = 'none';
+      avatarFallback.style.display = 'flex';
+    } else {
+      avatarImg.style.display = 'block';
+      avatarFallback.style.display = 'none';
+    }
+  }
+
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', function() {
+    initSettings();
+
+    // Navigation clicks
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const sectionId = item.getAttribute('data-section');
+        switchSection(sectionId);
+      });
+    });
+
+    // Avatar upload
+    uploadAvatarBtn.addEventListener('click', () => {
+      avatarInput.click();
+    });
+
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        handleAvatarUpload(file);
+      }
+    });
+
+    removeAvatarBtn.addEventListener('click', removeAvatar);
+
+    // Form submissions
+    forms.forEach(form => {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formType = form.id.replace('-form', '');
+        handleFormSubmit(form, formType);
+      });
+    });
+
+    // Cancel buttons
+    document.getElementById('cancel-profile')?.addEventListener('click', () => {
+      // Reset form to original values
+      document.getElementById('profile-form').reset();
+    });
+
+    // Danger zone actions
+    document.getElementById('change-password')?.addEventListener('click', () => {
+      // In a real app, this would open a password change modal
+      alert('Funcionalidad de cambio de contraseña - pendiente de implementar');
+    });
+
+    document.getElementById('delete-account')?.addEventListener('click', () => {
+      // In a real app, this would show a confirmation modal
+      if (confirm('¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.')) {
+        alert('Funcionalidad de eliminación de cuenta - pendiente de implementar');
+      }
+    });
+
+    // Auto-save for toggles
+    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+      checkbox.addEventListener('change', () => {
+        // Auto-save toggle changes
+        setTimeout(() => {
+          showSuccessMessage();
+        }, 500);
+      });
+    });
+
+    // Theme change
+    document.querySelectorAll('input[name="theme"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        // Apply theme immediately
+        const theme = radio.value;
+        console.log('Theme changed to:', theme);
+        // In a real app, you would apply the theme here
+      });
+    });
+  });
+</script>

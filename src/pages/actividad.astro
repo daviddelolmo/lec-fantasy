@@ -1,64 +1,1344 @@
 ---
-import DefaultLayout from '../layouts/DefaultLayout.astro'
-import { Media, Modal, Pagination } from 'accessible-astro-components'
+// src/pages/leagues/[id]/activity.astro
+import DefaultLayout from '../layouts/DefaultLayout.astro';
+import { supabase } from '../lib/supabase';
+
+const { id } = Astro.params;
+
+// Datos temporales de actividad - luego los conectaremos a Supabase
+const activityData = {
+  activities: [
+    {
+      id: 1,
+      type: "MATCH_WEEK_ENDED",
+      timestamp: "2024-01-29T22:30:00Z",
+      title: "Jornada 3 finalizada",
+      description: "Todos los partidos de la jornada 3 han terminado. Las puntuaciones han sido actualizadas.",
+      icon: "🏁",
+      priority: "high"
+    },
+    {
+      id: 2,
+      type: "PLAYER_TRANSFER",
+      timestamp: "2024-01-29T20:15:00Z",
+      title: "daviddelolmo fichó a Caps",
+      description: "daviddelolmo ha ganado la subasta y fichado a Caps por 12,500€",
+      details: {
+        user: "daviddelolmo",
+        player: "Caps",
+        position: "MID",
+        team: "G2",
+        amount: 12000
+      },
+      icon: "💰",
+      priority: "medium"
+    },
+    {
+      id: 3,
+      type: "PLAYER_SOLD",
+      timestamp: "2024-01-29T19:45:00Z",
+      title: "Player3 vendió a Humanoid",
+      description: "Player3 ha puesto a Humanoid en el mercado por 9,200€",
+      details: {
+        user: "Player3",
+        player: "Humanoid",
+        position: "MID",
+        team: "FNC",
+        amount: 9200
+      },
+      icon: "📤",
+      priority: "low"
+    },
+    {
+      id: 4,
+      type: "TOP_PERFORMER",
+      timestamp: "2024-01-29T18:30:00Z",
+      title: "Player2 lidera la jornada",
+      description: "Player2 ha obtenido 312 puntos en la jornada 3, el mejor resultado de la semana.",
+      details: {
+        user: "Player2",
+        points: 312,
+        week: 3
+      },
+      icon: "🏆",
+      priority: "medium"
+    },
+    {
+      id: 5,
+      type: "MARKET_ROUND_STARTED",
+      timestamp: "2024-01-29T12:00:00Z",
+      title: "Nueva ronda de mercado",
+      description: "Ha comenzado la ronda 4 del mercado. 3 nuevos jugadores disponibles para subasta.",
+      details: {
+        round: 4,
+        playersCount: 3
+      },
+      icon: "🔄",
+      priority: "high"
+    },
+    {
+      id: 6,
+      type: "USER_JOINED",
+      timestamp: "2024-01-28T16:20:00Z",
+      title: "Nuevo miembro",
+      description: "Player6 se ha unido a la liga",
+      details: {
+        user: "Player6"
+      },
+      icon: "👋",
+      priority: "low"
+    },
+    {
+      id: 7,
+      type: "POWER_UP_USED",
+      timestamp: "2024-01-28T14:10:00Z",
+      title: "daviddelolmo activó power-up",
+      description: "daviddelolmo ha aplicado el power-up CARRY a Elyoya",
+      details: {
+        user: "daviddelolmo",
+        player: "Elyoya",
+        powerUp: "CARRY"
+      },
+      icon: "⚡",
+      priority: "low"
+    },
+    {
+      id: 8,
+      type: "MATCH_STARTED",
+      timestamp: "2024-01-28T18:00:00Z",
+      title: "Partidos de jornada 3 iniciados",
+      description: "Han comenzado los partidos de la jornada 3. ¡Que empiece la acción!",
+      icon: "🎮",
+      priority: "high"
+    },
+    {
+      id: 9,
+      type: "BUDGET_WARNING",
+      timestamp: "2024-01-27T22:30:00Z",
+      title: "Player1 tiene presupuesto bajo",
+      description: "Player1 solo tiene 1,200€ restantes en su presupuesto",
+      details: {
+        user: "Player1",
+        budget: 1200
+      },
+      icon: "⚠️",
+      priority: "low"
+    },
+    {
+      id: 10,
+      type: "PLAYER_TRANSFER",
+      timestamp: "2024-01-27T20:45:00Z",
+      title: "Player8 fichó a Razork",
+      description: "Player8 ha ganado la subasta y fichado a Razork por 7,800€",
+      details: {
+        user: "Player8",
+        player: "Razork",
+        position: "JUNGLE",
+        team: "FNC",
+        amount: 7800
+      },
+      icon: "💰",
+      priority: "medium"
+    },
+    {
+      id: 11,
+      type: "WEEKLY_SUMMARY",
+      timestamp: "2024-01-27T12:00:00Z",
+      title: "Resumen de jornada 2",
+      description: "Jornada 2 completada. ProGamer mantiene el liderato con 1,847 puntos totales.",
+      details: {
+        week: 2,
+        leader: "ProGamer",
+        points: 1847
+      },
+      icon: "📊",
+      priority: "medium"
+    },
+    {
+      id: 12,
+      type: "LEAGUE_MILESTONE",
+      timestamp: "2024-01-26T15:30:00Z",
+      title: "¡Liga completamente llena!",
+      description: "La liga ha alcanzado el máximo de 8 participantes. ¡Que comience la competición!",
+      icon: "🎉",
+      priority: "high"
+    }
+  ],
+  filters: [
+    { id: "all", label: "Todas", count: 12 },
+    { id: "transfers", label: "Fichajes", count: 2 },
+    { id: "matches", label: "Partidos", count: 3 },
+    { id: "market", label: "Mercado", count: 3 },
+    { id: "users", label: "Usuarios", count: 4 }
+  ]
+};
 ---
 
 <DefaultLayout title="Actividad">
-  <section>
-    <h1>Media</h1><br>
-    <p class="size-20">Lorem ipsum dolor sit amet.</p>
-  </section>
-  <section class="margin-32">
-    <div class="space-content">
-      <div class="contents">
-        <h2>Media overview</h2>
-        <p><em>Results: 1-6 of 24</em></p>
-      </div>
-      <button id="modal-trigger" class="button color-secondary">Add new media item</button>
-      <Modal
-        triggerId="modal-trigger"
-        title="Add media"
-        closeText="Cancel"
-      >
-        <p>You can use this component to include a form that adds a new media item to the list.</p>
-      </Modal>
-      <div class="grid small-grid-1 medium-grid-2 large-grid-3 equal-height">
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2344&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1608178398319-48f814d0750c?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1758&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1454789548928-9efd52dc4031?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1760&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1590907047706-ee9c08cf3189?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1760&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1446941611757-91d2c3bd3d45?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1402&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1536697246787-1f7ae568d89a?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1287&q=80"
-        />
+  <div class="activity-container">
+    <!-- League Sub-Navigation -->
+    <div class="league-subnav">
+      <div class="subnav-container">
+        <div class="league-info">
+          <h1 class="league-name">Liga de ejemplo</h1>
+          <span class="league-status active">Activa</span>
+        </div>
+        
+        <nav class="subnav-menu">
+          <a href={`/leagues/${id}/team`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Mi Equipo
+          </a>
+          <a href={`/leagues/${id}/market`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            Mercado
+          </a>
+          <a href={`/leagues/${id}/standings`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 6l4-4 4 4"></path>
+              <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path>
+              <path d="M20 22l-6.828-6.828A4 4 0 0 1 12 12.3V2"></path>
+            </svg>
+            Clasificación
+          </a>
+          <a href={`/leagues/${id}/matches`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Partidos
+          </a>
+          <a href={`/leagues/${id}/activity`} class="subnav-link active">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+              <path d="M12 6v6l4 2"></path>
+            </svg>
+            Actividad
+          </a>
+        </nav>
       </div>
     </div>
-    <div class="grid align-horizontal margin-32">
-      <Pagination />
+
+    <!-- Activity Header -->
+    <div class="activity-header">
+      <div class="header-info">
+        <h2 class="page-title">Actividad de la Liga</h2>
+        <p class="page-subtitle">Mantente al día con todo lo que ocurre en tu liga</p>
+      </div>
+      
+      <div class="header-actions">
+        <button class="refresh-btn" id="refresh-activity">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+          </svg>
+          Actualizar
+        </button>
+        
+        <div class="notifications-toggle">
+          <input type="checkbox" id="notifications" checked>
+          <label for="notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            Notificaciones
+          </label>
+        </div>
+      </div>
     </div>
-  </section>
+
+    <div class="activity-content">
+      <!-- Activity Filters -->
+      <div class="activity-sidebar">
+        <div class="filters-section">
+          <h3 class="filters-title">Filtrar por tipo</h3>
+          <div class="filters-list">
+            {activityData.filters.map(filter => (
+              <button class={`filter-btn ${filter.id === 'all' ? 'active' : ''}`} data-filter={filter.id}>
+                <span class="filter-label">{filter.label}</span>
+                <span class="filter-count">{filter.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div class="quick-stats">
+          <h3 class="stats-title">Resumen</h3>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-icon">💰</div>
+              <div class="stat-info">
+                <span class="stat-value">2</span>
+                <span class="stat-label">Fichajes hoy</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">🎮</div>
+              <div class="stat-info">
+                <span class="stat-value">5</span>
+                <span class="stat-label">Partidos jugados</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">👥</div>
+              <div class="stat-info">
+                <span class="stat-value">8</span>
+                <span class="stat-label">Miembros activos</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Feed -->
+      <div class="activity-feed">
+        <div class="feed-header">
+          <h3 class="feed-title">Feed de Actividad</h3>
+          <div class="feed-controls">
+            <button class="sort-btn active" data-sort="newest">Más reciente</button>
+            <button class="sort-btn" data-sort="oldest">Más antiguo</button>
+          </div>
+        </div>
+        
+        <div class="activity-timeline">
+          {activityData.activities.map((activity, index) => (
+            <div class={`activity-item ${activity.priority}`} data-type={activity.type}>
+              <div class="activity-timeline-marker">
+                <div class="timeline-dot"></div>
+                {index < activityData.activities.length - 1 && <div class="timeline-line"></div>}
+              </div>
+              
+              <div class="activity-card">
+                <div class="activity-header">
+                  <div class="activity-icon">{activity.icon}</div>
+                  <div class="activity-meta">
+                    <h4 class="activity-title">{activity.title}</h4>
+                    <span class="activity-time">
+                      {new Date(activity.timestamp).toLocaleString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  <div class={`priority-badge ${activity.priority}`}>
+                    {activity.priority === 'high' && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                
+                <div class="activity-content">
+                  <p class="activity-description">{activity.description}</p>
+                  
+                  {activity.details && (
+                    <div class="activity-details">
+                      {activity.type === 'PLAYER_TRANSFER' && (
+                        <div class="transfer-details">
+                          <div class="player-info">
+                            <span class="player-position">{activity.details.position}</span>
+                            <span class="player-name">{activity.details.player}</span>
+                            <span class="player-team">({activity.details.team})</span>
+                          </div>
+                          <div class="transfer-amount">{activity.details.amount.toLocaleString()}€</div>
+                        </div>
+                      )}
+                      
+                      {activity.type === 'PLAYER_SOLD' && (
+                        <div class="transfer-details">
+                          <div class="player-info">
+                            <span class="player-position">{activity.details.position}</span>
+                            <span class="player-name">{activity.details.player}</span>
+                            <span class="player-team">({activity.details.team})</span>
+                          </div>
+                          <div class="transfer-amount sell">{activity.details.amount.toLocaleString()}€</div>
+                        </div>
+                      )}
+                      
+                      {activity.type === 'TOP_PERFORMER' && (
+                        <div class="performance-details">
+                          <div class="performance-stat">
+                            <span class="stat-label">Puntos obtenidos:</span>
+                            <span class="stat-value">{activity.details.points}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {activity.type === 'BUDGET_WARNING' && (
+                        <div class="budget-details">
+                          <div class="budget-warning">
+                            <span class="warning-text">Presupuesto restante:</span>
+                            <span class="budget-amount">{activity.details.budget.toLocaleString()}€</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {(activity.type === 'PLAYER_TRANSFER' || activity.type === 'TOP_PERFORMER') && (
+                  <div class="activity-actions">
+                    <button class="action-btn">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                      Ver detalles
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div class="load-more">
+          <button class="load-more-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+            Cargar más actividad
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </DefaultLayout>
 
-<style lang="scss" is:global>
-  .media {
-    width: 100%;
-    max-height: 250px;
-    object-fit: cover;
+<style>
+  /* League Sub-Navigation - Same as other pages */
+  .league-subnav {
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 2rem;
+  }
+
+  .subnav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .league-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .league-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .league-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .league-status.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .subnav-menu {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .subnav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: #64748b;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .subnav-link:hover {
+    background: #f8fafc;
+    color: #475569;
+  }
+
+  .subnav-link.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+
+  .subnav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Activity Container */
+  .activity-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* Activity Header */
+  .activity-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+  }
+
+  .header-info {
+    flex: 1;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .page-subtitle {
+    color: #64748b;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+  }
+
+  .refresh-btn:hover {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  .refresh-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .notifications-toggle {
+    display: flex;
+    align-items: center;
+  }
+
+  .notifications-toggle input {
+    display: none;
+  }
+
+  .notifications-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+  }
+
+  .notifications-toggle input:checked + label {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+  }
+
+  .notifications-toggle label svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Activity Content */
+  .activity-content {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 2rem;
+  }
+
+  /* Activity Sidebar */
+  .activity-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .filters-section {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .filters-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0 0 1rem 0;
+  }
+
+  .filters-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .filter-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+  }
+
+  .filter-btn:hover {
+    background: #f8fafc;
+  }
+
+  .filter-btn.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .filter-label {
+    font-weight: 500;
+    color: inherit;
+  }
+
+  .filter-count {
+    background: #e2e8f0;
+    color: #64748b;
+    padding: 0.125rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .filter-btn.active .filter-count {
+    background: #3b82f6;
+    color: white;
+  }
+
+  /* Quick Stats */
+  .quick-stats {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .stats-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0 0 1rem 0;
+  }
+
+  .stats-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .stat-icon {
+    font-size: 1.5rem;
+  }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-value {
+    font-weight: 700;
+    color: #1a202c;
+    font-size: 1.125rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  /* Activity Feed */
+  .activity-feed {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .feed-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .feed-controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .sort-btn {
+    padding: 0.375rem 0.75rem;
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    color: #64748b;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .sort-btn:hover {
+    border-color: #cbd5e0;
+  }
+
+  .sort-btn.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  }
+
+  /* Activity Timeline */
+  .activity-timeline {
+    padding: 1.5rem;
+  }
+
+  .activity-item {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .activity-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .activity-timeline-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .timeline-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #cbd5e0;
+    flex-shrink: 0;
+  }
+
+  .activity-item.high .timeline-dot {
+    background: #dc2626;
+  }
+
+  .activity-item.medium .timeline-dot {
+    background: #f59e0b;
+  }
+
+  .activity-item.low .timeline-dot {
+    background: #10b981;
+  }
+
+  .timeline-line {
+    width: 2px;
+    height: 100%;
+    background: #f1f5f9;
+    margin-top: 0.5rem;
+    position: absolute;
+    top: 12px;
+  }
+
+  /* Activity Card */
+  .activity-card {
+    flex: 1;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid #f1f5f9;
+  }
+
+  .activity-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .activity-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .activity-meta {
+    flex: 1;
+  }
+
+  .activity-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0 0 0.25rem 0;
+  }
+
+  .activity-time {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .priority-badge {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .priority-badge.high {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .priority-badge.high svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .priority-badge.medium,
+  .priority-badge.low {
+    display: none;
+  }
+
+  /* Activity Content */
+  .activity-content {
+    margin-bottom: 0.75rem;
+  }
+
+  .activity-description {
+    font-size: 0.875rem;
+    color: #374151;
+    margin: 0 0 0.75rem 0;
+    line-height: 1.4;
+  }
+
+  .activity-details {
+    background: white;
+    border-radius: 6px;
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* Transfer Details */
+  .transfer-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .player-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .player-position {
+    background: #3b82f6;
+    color: white;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    font-size: 0.625rem;
+    font-weight: 600;
+  }
+
+  .player-name {
+    font-weight: 600;
+    color: #1a202c;
+    font-size: 0.875rem;
+  }
+
+  .player-team {
+    color: #64748b;
+    font-size: 0.75rem;
+  }
+
+  .transfer-amount {
+    font-weight: 700;
+    color: #059669;
+    font-size: 0.875rem;
+  }
+
+  .transfer-amount.sell {
+    color: #f59e0b;
+  }
+
+  /* Performance Details */
+  .performance-details {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .performance-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .performance-stat .stat-label {
+    color: #64748b;
+    font-size: 0.75rem;
+  }
+
+  .performance-stat .stat-value {
+    font-weight: 700;
+    color: #3b82f6;
+    font-size: 0.875rem;
+  }
+
+  /* Budget Details */
+  .budget-details {
+    display: flex;
+    align-items: center;
+  }
+
+  .budget-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .warning-text {
+    color: #dc2626;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .budget-amount {
+    font-weight: 700;
+    color: #dc2626;
+    font-size: 0.875rem;
+  }
+
+  /* Activity Actions */
+  .activity-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .action-btn:hover {
+    background: #1d4ed8;
+  }
+
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Load More */
+  .load-more {
+    padding: 1.5rem;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: center;
+  }
+
+  .load-more-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+  }
+
+  .load-more-btn:hover {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  .load-more-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .subnav-container {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .subnav-menu {
+      overflow-x: auto;
+      width: 100%;
+      padding-bottom: 0.5rem;
+    }
+
+    .activity-container {
+      padding: 0 1rem;
+    }
+
+    .activity-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .activity-content {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .activity-sidebar {
+      order: 2;
+      flex-direction: row;
+      gap: 1rem;
+      overflow-x: auto;
+    }
+
+    .filters-section,
+    .quick-stats {
+      min-width: 250px;
+    }
+
+    .activity-feed {
+      order: 1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .subnav-link span {
+      display: none;
+    }
+
+    .subnav-link {
+      padding: 0.75rem;
+    }
+
+    .header-actions {
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+
+    .feed-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .activity-item {
+      gap: 0.75rem;
+    }
+
+    .timeline-dot {
+      width: 10px;
+      height: 10px;
+    }
+
+    .activity-card {
+      padding: 0.75rem;
+    }
+
+    .transfer-details {
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: flex-start;
+    }
+
+    .activity-sidebar {
+      flex-direction: column;
+    }
+
+    .filters-section,
+    .quick-stats {
+      min-width: auto;
+    }
   }
 </style>
+
+<script>
+  // Activity page functionality
+  let currentFilter = 'all';
+  let currentSort = 'newest';
+
+  // DOM elements
+  const filterButtons = document.querySelectorAll('.filter-btn');
+  const sortButtons = document.querySelectorAll('.sort-btn');
+  const activityItems = document.querySelectorAll('.activity-item');
+  const refreshButton = document.getElementById('refresh-activity');
+  const loadMoreButton = document.querySelector('.load-more-btn');
+  const notificationsToggle = document.getElementById('notifications');
+
+  // Activity type mappings for filtering
+  const activityTypeMap = {
+    'all': [],
+    'transfers': ['PLAYER_TRANSFER', 'PLAYER_SOLD'],
+    'matches': ['MATCH_WEEK_ENDED', 'MATCH_STARTED', 'TOP_PERFORMER'],
+    'market': ['MARKET_ROUND_STARTED', 'POWER_UP_USED', 'BUDGET_WARNING'],
+    'users': ['USER_JOINED', 'WEEKLY_SUMMARY', 'LEAGUE_MILESTONE']
+  };
+
+  // Filter functionality
+  function filterActivities(filterType) {
+    const typesToShow = activityTypeMap[filterType] || [];
+    
+    activityItems.forEach(item => {
+      const itemType = item.getAttribute('data-type');
+      
+      if (filterType === 'all' || typesToShow.includes(itemType)) {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+
+    // Update filter button states
+    filterButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-filter') === filterType);
+    });
+
+    currentFilter = filterType;
+  }
+
+  // Sort functionality
+  function sortActivities(sortType) {
+    const timeline = document.querySelector('.activity-timeline');
+    const items = Array.from(activityItems);
+    
+    items.sort((a, b) => {
+      const timeA = a.querySelector('.activity-time').textContent;
+      const timeB = b.querySelector('.activity-time').textContent;
+      
+      if (sortType === 'newest') {
+        return timeB.localeCompare(timeA);
+      } else {
+        return timeA.localeCompare(timeB);
+      }
+    });
+
+    // Clear timeline and re-append sorted items
+    timeline.innerHTML = '';
+    items.forEach(item => timeline.appendChild(item));
+
+    // Update sort button states
+    sortButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-sort') === sortType);
+    });
+
+    currentSort = sortType;
+  }
+
+  // Refresh activity feed
+  function refreshActivity() {
+    // Add loading state
+    refreshButton.style.opacity = '0.6';
+    refreshButton.style.pointerEvents = 'none';
+    
+    // Simulate refresh
+    setTimeout(() => {
+      refreshButton.style.opacity = '1';
+      refreshButton.style.pointerEvents = 'auto';
+      
+      // In a real app, you would fetch new data here
+      console.log('Activity refreshed');
+      
+      // Show a brief success indicator
+      const originalText = refreshButton.innerHTML;
+      refreshButton.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22,4 12,14.01 9,11.01"></polyline>
+        </svg>
+        Actualizado
+      `;
+      
+      setTimeout(() => {
+        refreshButton.innerHTML = originalText;
+      }, 2000);
+    }, 1000);
+  }
+
+  // Load more activities
+  function loadMoreActivities() {
+    // Add loading state
+    loadMoreButton.style.opacity = '0.6';
+    loadMoreButton.disabled = true;
+    
+    // Simulate loading more activities
+    setTimeout(() => {
+      loadMoreButton.style.opacity = '1';
+      loadMoreButton.disabled = false;
+      
+      // In a real app, you would append new activity items here
+      console.log('More activities loaded');
+    }, 1500);
+  }
+
+  // Toggle notifications
+  function toggleNotifications() {
+    const isEnabled = notificationsToggle.checked;
+    console.log('Notifications:', isEnabled ? 'enabled' : 'disabled');
+    
+    // In a real app, you would save this preference
+    // and handle push notification subscription
+  }
+
+  // Initialize relative time updates
+  function updateRelativeTimes() {
+    const timeElements = document.querySelectorAll('.activity-time');
+    
+    timeElements.forEach(element => {
+      // In a real app, you would calculate and update relative times
+      // like "hace 2 horas", "ayer", etc.
+    });
+  }
+
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', function() {
+    // Filter button clicks
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filterType = btn.getAttribute('data-filter');
+        filterActivities(filterType);
+      });
+    });
+
+    // Sort button clicks
+    sortButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sortType = btn.getAttribute('data-sort');
+        sortActivities(sortType);
+      });
+    });
+
+    // Action button clicks
+    document.querySelectorAll('.action-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // In a real app, this would open a detailed view
+        console.log('View details clicked');
+      });
+    });
+
+    // Refresh button
+    refreshButton.addEventListener('click', refreshActivity);
+
+    // Load more button
+    loadMoreButton.addEventListener('click', loadMoreActivities);
+
+    // Notifications toggle
+    notificationsToggle.addEventListener('change', toggleNotifications);
+
+    // Update relative times every minute
+    setInterval(updateRelativeTimes, 60000);
+
+    // Auto-refresh every 5 minutes
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshActivity();
+      }
+    }, 300000);
+  });
+
+  // Handle visibility change for auto-refresh
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+      // Page became visible, refresh if it's been a while
+      // In a real app, you'd check the last update time
+    }
+  });
+</script>

@@ -1,28 +1,1350 @@
 ---
-import DefaultLayout from '../layouts/DefaultLayout.astro'
-import EmpyState from '../components/EmpyState.astro'
-import { Modal } from 'accessible-astro-components'
+// src/pages/leagues/[id]/market.astro
+import DefaultLayout from '../layouts/DefaultLayout.astro';
+import { supabase } from '../lib/supabase';
+
+const { id } = Astro.params;
+
+// Datos temporales del mercado - luego los conectaremos a Supabase
+const marketData = {
+  currentRound: 3,
+  timeRemaining: "04:32:45",
+  userBudget: 7340,
+  activeAuctions: [
+    {
+      id: 1,
+      player: { name: "BrokenBlade", position: "TOP", team: "G2", value: 8500 },
+      currentBid: 7200,
+      currentBidder: "Player1",
+      minBid: 7300,
+      timeLeft: "02:15:30",
+      bidCount: 12,
+      isUserHighest: false
+    },
+    {
+      id: 2,
+      player: { name: "Caliste", position: "ADC", team: "KC", value: 7800 },
+      currentBid: 6500,
+      currentBidder: "Player2",
+      minBid: 6600,
+      timeLeft: "01:45:12",
+      bidCount: 8,
+      isUserHighest: true
+    },
+    {
+      id: 3,
+      player: { name: "Mikyx", position: "SUPPORT", team: "FNC", value: 9200 },
+      currentBid: 8000,
+      currentBidder: "Player3",
+      minBid: 8100,
+      timeLeft: "03:22:18",
+      bidCount: 15,
+      isUserHighest: false
+    }
+  ],
+  userPlayers: [
+    { id: 11, name: "Canna", position: "TOP", team: "KC", value: 10000, sellPrice: 7500 },
+    { id: 12, name: "Razork", position: "JUNGLE", team: "FNC", value: 9500, sellPrice: 6800 },
+    { id: 13, name: "Caps", position: "MID", team: "G2", value: 12000, sellPrice: 9000 }
+  ]
+};
 ---
 
 <DefaultLayout title="Mercado">
-  <section>
-    <h1>Users</h1><br>
-    <p class="size-20">Lorem ipsum dolor sit amet.</p>
-  </section>
-  <section class="margin-32">
-    <div class="space-content">
-      <h2>Users overview</h2>
-      <EmpyState>
-        You haven't added any users yet. Start by adding some.
-      </EmpyState>
-      <button id="modal-trigger" class="button color-secondary">Add your first user</button>
-      <Modal
-        triggerId="modal-trigger"
-        title="Add user"
-        closeText="Cancel"
-      >
-        <p>You can use this component to include a form that adds a new user to the list.</p>
-      </Modal>
+  <div class="market-container">
+    <!-- League Sub-Navigation -->
+    <div class="league-subnav">
+      <div class="subnav-container">
+        <div class="league-info">
+          <h1 class="league-name">Liga de ejemplo</h1>
+          <span class="league-status active">Activa</span>
+        </div>
+        
+        <nav class="subnav-menu">
+          <a href={`/leagues/${id}/team`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Mi Equipo
+          </a>
+          <a href={`/leagues/${id}/market`} class="subnav-link active">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            Mercado
+          </a>
+          <a href={`/leagues/${id}/standings`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 6l4-4 4 4"></path>
+              <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path>
+              <path d="M20 22l-6.828-6.828A4 4 0 0 1 12 12.3V2"></path>
+            </svg>
+            Clasificación
+          </a>
+          <a href={`/leagues/${id}/matches`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Partidos
+          </a>
+          <a href={`/leagues/${id}/activity`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+              <path d="M12 6v6l4 2"></path>
+            </svg>
+            Actividad
+          </a>
+        </nav>
+      </div>
     </div>
-  </section>
+
+    <!-- Market Header -->
+    <div class="market-header">
+      <div class="market-info">
+        <h2 class="page-title">Mercado</h2>
+        <p class="page-subtitle">Puja por jugadores libres</p>
+      </div>
+      
+      <div class="market-stats">
+        <div class="stat-card">
+          <div class="stat-icon round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12,6 12,12 16,14"></polyline>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Ronda Actual</span>
+            <span class="stat-value">{marketData.currentRound}</span>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon timer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12,6 12,12 16,14"></polyline>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Tiempo Restante</span>
+            <span class="stat-value countdown" id="market-countdown">{marketData.timeRemaining}</span>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon budget">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Tu Presupuesto</span>
+            <span class="stat-value">{marketData.userBudget.toLocaleString()}€</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="market-content">
+      <!-- Active Auctions -->
+      <div class="auctions-section">
+        <div class="section-header">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 9V5a3 3 0 0 0-6 0v4"></path>
+              <rect x="2" y="9" width="20" height="11" rx="2" ry="2"></rect>
+            </svg>
+            Subastas Activas
+          </h3>
+          <span class="section-count">{marketData.activeAuctions.length} jugadores</span>
+        </div>
+        
+        <div class="auctions-grid">
+          {marketData.activeAuctions.map(auction => (
+            <div class="auction-card" data-auction-id={auction.id}>
+              <div class="auction-header">
+                <div class="player-info">
+                  <div class="player-avatar">
+                    <span class="position-badge">{auction.player.position}</span>
+                  </div>
+                  <div class="player-details">
+                    <h4 class="player-name">{auction.player.name}</h4>
+                    <span class="player-team">{auction.player.team}</span>
+                    <span class="player-value">Valor: {auction.player.value.toLocaleString()}€</span>
+                  </div>
+                </div>
+                <div class="auction-timer">
+                  <span class="timer-label">Termina en</span>
+                  <span class="timer-value" data-countdown={auction.timeLeft}>{auction.timeLeft}</span>
+                </div>
+              </div>
+
+              <div class="auction-status">
+                <div class="current-bid">
+                  <span class="bid-label">Puja actual</span>
+                  <span class="bid-amount">{auction.currentBid.toLocaleString()}€</span>
+                  <span class="bid-user">por {auction.currentBidder}</span>
+                </div>
+                {auction.isUserHighest && (
+                  <div class="highest-bidder">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22,4 12,14.01 9,11.01"></polyline>
+                    </svg>
+                    Eres el mejor postor
+                  </div>
+                )}
+              </div>
+
+              <div class="auction-actions">
+                <div class="bid-input-group">
+                  <input 
+                    type="number" 
+                    class="bid-input" 
+                    min={auction.minBid}
+                    max={marketData.userBudget}
+                    placeholder={`Mín: ${auction.minBid.toLocaleString()}€`}
+                    data-auction-id={auction.id}
+                  />
+                  <button class="bid-btn" data-auction-id={auction.id}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M5 12h14"></path>
+                      <path d="M12 5l7 7-7 7"></path>
+                    </svg>
+                    Pujar
+                  </button>
+                </div>
+                <div class="auction-info">
+                  <span class="bid-count">{auction.bidCount} pujas</span>
+                  <span class="min-bid">Mínima: {auction.minBid.toLocaleString()}€</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- My Players for Sale -->
+      <div class="sell-section">
+        <div class="section-header">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M7 17L17 7"></path>
+              <path d="M7 7h10v10"></path>
+            </svg>
+            Mis Jugadores
+          </h3>
+          <span class="section-count">{marketData.userPlayers.length} disponibles</span>
+        </div>
+        
+        <div class="players-grid">
+          {marketData.userPlayers.map(player => (
+            <div class="player-card sellable" data-player-id={player.id}>
+              <div class="player-info">
+                <div class="player-avatar">
+                  <span class="position-badge">{player.position}</span>
+                </div>
+                <div class="player-details">
+                  <h4 class="player-name">{player.name}</h4>
+                  <span class="player-team">{player.team}</span>
+                  <div class="player-values">
+                    <span class="market-value">Valor: {player.value.toLocaleString()}€</span>
+                    <span class="sell-price">Venta: {player.sellPrice.toLocaleString()}€</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="player-actions">
+                <button class="sell-btn" data-player-id={player.id}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                  </svg>
+                  Poner en venta
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Bid Confirmation Modal -->
+    <div id="bid-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Confirmar Puja</h3>
+          <button class="modal-close" id="close-bid-modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="bid-summary">
+            <div class="player-summary">
+              <span class="summary-label">Jugador:</span>
+              <span class="summary-value" id="bid-player-name"></span>
+            </div>
+            <div class="amount-summary">
+              <span class="summary-label">Tu puja:</span>
+              <span class="summary-value amount" id="bid-amount"></span>
+            </div>
+            <div class="budget-summary">
+              <span class="summary-label">Presupuesto restante:</span>
+              <span class="summary-value" id="remaining-budget"></span>
+            </div>
+          </div>
+          <div id="bid-error" class="bid-error hidden"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="cancel-bid">Cancelar</button>
+          <button class="btn btn-primary" id="confirm-bid">
+            <span class="btn-text">Confirmar Puja</span>
+            <div class="btn-spinner hidden"></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sell Player Modal -->
+    <div id="sell-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Poner Jugador en Venta</h3>
+          <button class="modal-close" id="close-sell-modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="sell-summary">
+            <div class="player-summary">
+              <span class="summary-label">Jugador:</span>
+              <span class="summary-value" id="sell-player-name"></span>
+            </div>
+            <div class="price-input-group">
+              <label for="sell-price">Precio de venta:</label>
+              <input type="number" id="sell-price" class="price-input" placeholder="Precio en €">
+              <span class="price-help">Precio recomendado: <span id="recommended-price"></span></span>
+            </div>
+          </div>
+          <div id="sell-error" class="sell-error hidden"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="cancel-sell">Cancelar</button>
+          <button class="btn btn-primary" id="confirm-sell">
+            <span class="btn-text">Poner en Venta</span>
+            <div class="btn-spinner hidden"></div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </DefaultLayout>
+
+<style>
+  /* League Sub-Navigation - Same as team page */
+  .league-subnav {
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 2rem;
+  }
+
+  .subnav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .league-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .league-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .league-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .league-status.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .subnav-menu {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .subnav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: #64748b;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .subnav-link:hover {
+    background: #f8fafc;
+    color: #475569;
+  }
+
+  .subnav-link.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+
+  .subnav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Market Container */
+  .market-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* Market Header */
+  .market-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+  }
+
+  .market-info {
+    flex: 1;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .page-subtitle {
+    color: #64748b;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .market-stats {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 160px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  .stat-icon.round {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  }
+
+  .stat-icon.timer {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+
+  .stat-icon.budget {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+
+  .stat-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .stat-value {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #1a202c;
+  }
+
+  .countdown {
+    color: #dc2626;
+    font-family: monospace;
+  }
+
+  /* Market Content */
+  .market-content {
+    display: grid;
+    gap: 2rem;
+  }
+
+  /* Section Headers */
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .section-icon {
+    width: 20px;
+    height: 20px;
+    color: #3b82f6;
+  }
+
+  .section-count {
+    background: #f1f5f9;
+    color: #64748b;
+    padding: 0.25rem 0.75rem;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* Auctions Grid */
+  .auctions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .auction-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .auction-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .auction-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+
+  .player-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .player-avatar {
+    width: 48px;
+    height: 48px;
+    background: #f1f5f9;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .position-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .player-details {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .player-name {
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+  }
+
+  .player-team {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+  }
+
+  .player-value {
+    font-size: 0.75rem;
+    color: #059669;
+    font-weight: 500;
+  }
+
+  .auction-timer {
+    text-align: right;
+    min-width: 80px;
+  }
+
+  .timer-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+  }
+
+  .timer-value {
+    font-family: monospace;
+    font-weight: 600;
+    color: #dc2626;
+    font-size: 0.875rem;
+  }
+
+  /* Auction Status */
+  .auction-status {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+
+  .current-bid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .bid-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .bid-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1a202c;
+  }
+
+  .bid-user {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .highest-bidder {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    color: #059669;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .highest-bidder svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Auction Actions */
+  .auction-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .bid-input-group {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .bid-input {
+    flex: 1;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+  }
+
+  .bid-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .bid-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+  }
+
+  .bid-btn:hover {
+    background: #1d4ed8;
+  }
+
+  .bid-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .auction-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  /* Players Grid */
+  .players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+
+  .player-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .player-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .player-values {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .market-value {
+    font-size: 0.75rem;
+    color: #059669;
+    font-weight: 500;
+  }
+
+  .sell-price {
+    font-size: 0.75rem;
+    color: #f59e0b;
+    font-weight: 500;
+  }
+
+  .player-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .sell-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f59e0b;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+  }
+
+  .sell-btn:hover {
+    background: #d97706;
+  }
+
+  .sell-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Modals */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 400px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #64748b;
+  }
+
+  .modal-close svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .modal-body {
+    margin-bottom: 1.5rem;
+  }
+
+  .bid-summary,
+  .sell-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .player-summary,
+  .amount-summary,
+  .budget-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .summary-label {
+    font-weight: 500;
+    color: #64748b;
+  }
+
+  .summary-value {
+    font-weight: 600;
+    color: #1a202c;
+  }
+
+  .summary-value.amount {
+    color: #3b82f6;
+    font-size: 1.125rem;
+  }
+
+  .price-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .price-input-group label {
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .price-input {
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .price-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .price-help {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .bid-error,
+  .sell-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+
+  .btn {
+    padding: 0.625rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-primary {
+    background: #3b82f6;
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: #1d4ed8;
+  }
+
+  .btn-secondary {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+
+  .btn-secondary:hover {
+    background: #e2e8f0;
+  }
+
+  .btn-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .subnav-container {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .subnav-menu {
+      overflow-x: auto;
+      width: 100%;
+      padding-bottom: 0.5rem;
+    }
+
+    .market-container {
+      padding: 0 1rem;
+    }
+
+    .market-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .market-stats {
+      flex-direction: column;
+    }
+
+    .auctions-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .players-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .subnav-link span {
+      display: none;
+    }
+
+    .subnav-link {
+      padding: 0.75rem;
+    }
+
+    .auction-header {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .auction-timer {
+      text-align: left;
+    }
+
+    .bid-input-group {
+      flex-direction: column;
+    }
+
+    .player-card {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+    }
+  }
+</style>
+
+<script>
+  // Market data and functionality
+  let currentBidAuction = null;
+  let currentSellPlayer = null;
+
+  // DOM elements
+  const bidModal = document.getElementById('bid-modal');
+  const sellModal = document.getElementById('sell-modal');
+  const closeBidModal = document.getElementById('close-bid-modal');
+  const closeSellModal = document.getElementById('close-sell-modal');
+  const confirmBidBtn = document.getElementById('confirm-bid');
+  const confirmSellBtn = document.getElementById('confirm-sell');
+  const cancelBidBtn = document.getElementById('cancel-bid');
+  const cancelSellBtn = document.getElementById('cancel-sell');
+
+  // Countdown functionality
+  function updateCountdowns() {
+    const countdownElements = document.querySelectorAll('[data-countdown]');
+    countdownElements.forEach(element => {
+      const timeLeft = element.getAttribute('data-countdown');
+      // In a real app, you'd calculate the actual time remaining
+      element.textContent = timeLeft;
+    });
+
+    // Update main market countdown
+    const marketCountdown = document.getElementById('market-countdown');
+    if (marketCountdown) {
+      // In a real app, you'd calculate the actual time remaining
+      const current = marketCountdown.textContent;
+      marketCountdown.textContent = current;
+    }
+  }
+
+  // Bid functionality
+  function openBidModal(auctionId, playerName, currentBid, minBid) {
+    currentBidAuction = { id: auctionId, playerName, currentBid, minBid };
+    
+    document.getElementById('bid-player-name').textContent = playerName;
+    document.getElementById('bid-amount').textContent = '';
+    document.getElementById('remaining-budget').textContent = '';
+    
+    // Clear any errors
+    const errorEl = document.getElementById('bid-error');
+    errorEl.classList.add('hidden');
+    
+    bidModal.classList.remove('hidden');
+  }
+
+  function handleCloseBidModal() {
+    bidModal.classList.add('hidden');
+    currentBidAuction = null;
+  }
+
+  async function placeBid() {
+    if (!currentBidAuction) return;
+
+    const bidInput = document.querySelector(`[data-auction-id="${currentBidAuction.id}"]`);
+    const bidAmount = parseInt(bidInput.value);
+    const userBudget = 8450; // This would come from your app state
+
+    // Validation
+    if (!bidAmount || bidAmount < currentBidAuction.minBid) {
+      showBidError(`La puja mínima es ${currentBidAuction.minBid.toLocaleString()}€`);
+      return;
+    }
+
+    if (bidAmount > userBudget) {
+      showBidError('No tienes suficiente presupuesto');
+      return;
+    }
+
+    // Show loading
+    const btnText = confirmBidBtn.querySelector('.btn-text');
+    const btnSpinner = confirmBidBtn.querySelector('.btn-spinner');
+    btnText.classList.add('hidden');
+    btnSpinner.classList.remove('hidden');
+    confirmBidBtn.disabled = true;
+
+    try {
+      // Here you would make the API call to place the bid
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      
+      // Update UI
+      const auctionCard = document.querySelector(`[data-auction-id="${currentBidAuction.id}"]`);
+      if (auctionCard) {
+        const bidAmountEl = auctionCard.querySelector('.bid-amount');
+        const bidUserEl = auctionCard.querySelector('.bid-user');
+        const highestBidderEl = auctionCard.querySelector('.highest-bidder');
+        
+        bidAmountEl.textContent = `${bidAmount.toLocaleString()}€`;
+        bidUserEl.textContent = 'por Ti';
+        
+        // Add highest bidder indicator
+        if (!highestBidderEl) {
+          const statusDiv = auctionCard.querySelector('.auction-status');
+          const newHighestEl = document.createElement('div');
+          newHighestEl.className = 'highest-bidder';
+          newHighestEl.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22,4 12,14.01 9,11.01"></polyline>
+            </svg>
+            Eres el mejor postor
+          `;
+          statusDiv.appendChild(newHighestEl);
+        }
+      }
+      
+      handleCloseBidModal();
+    } catch (error) {
+      showBidError('Error al realizar la puja. Inténtalo de nuevo.');
+    } finally {
+      btnText.classList.remove('hidden');
+      btnSpinner.classList.add('hidden');
+      confirmBidBtn.disabled = false;
+    }
+  }
+
+  function showBidError(message) {
+    const errorEl = document.getElementById('bid-error');
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+  }
+
+  // Sell functionality
+  function openSellModal(playerId, playerName, recommendedPrice) {
+    currentSellPlayer = { id: playerId, name: playerName, recommendedPrice };
+    
+    document.getElementById('sell-player-name').textContent = playerName;
+    document.getElementById('recommended-price').textContent = `${recommendedPrice.toLocaleString()}€`;
+    document.getElementById('sell-price').value = recommendedPrice;
+    
+    // Clear any errors
+    const errorEl = document.getElementById('sell-error');
+    errorEl.classList.add('hidden');
+    
+    sellModal.classList.remove('hidden');
+  }
+
+  function handleCloseSellModal() {
+    sellModal.classList.add('hidden');
+    currentSellPlayer = null;
+  }
+
+  async function sellPlayer() {
+    if (!currentSellPlayer) return;
+
+    const sellPrice = parseInt(document.getElementById('sell-price').value);
+
+    // Validation
+    if (!sellPrice || sellPrice <= 0) {
+      showSellError('Ingresa un precio válido');
+      return;
+    }
+
+    // Show loading
+    const btnText = confirmSellBtn.querySelector('.btn-text');
+    const btnSpinner = confirmSellBtn.querySelector('.btn-spinner');
+    btnText.classList.add('hidden');
+    btnSpinner.classList.remove('hidden');
+    confirmSellBtn.disabled = true;
+
+    try {
+      // Here you would make the API call to put player on sale
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      
+      // Remove player from the sell list (they're now on auction)
+      const playerCard = document.querySelector(`[data-player-id="${currentSellPlayer.id}"]`);
+      if (playerCard) {
+        playerCard.remove();
+      }
+      
+      handleCloseSellModal();
+      
+      // You could also add the player to the auctions list here
+      // or show a success message
+    } catch (error) {
+      showSellError('Error al poner en venta. Inténtalo de nuevo.');
+    } finally {
+      btnText.classList.remove('hidden');
+      btnSpinner.classList.add('hidden');
+      confirmSellBtn.disabled = false;
+    }
+  }
+
+  function showSellError(message) {
+    const errorEl = document.getElementById('sell-error');
+    errorEl.textContent = message;
+    errorEl.classList.remove('hidden');
+  }
+
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', function() {
+    // Update countdowns every second
+    setInterval(updateCountdowns, 1000);
+
+    // Bid button clicks
+    document.querySelectorAll('.bid-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const auctionId = btn.getAttribute('data-auction-id');
+        const auctionCard = btn.closest('.auction-card');
+        const playerName = auctionCard.querySelector('.player-name').textContent;
+        const currentBid = parseInt(auctionCard.querySelector('.bid-amount').textContent.replace(/[€,]/g, ''));
+        const minBidEl = auctionCard.querySelector('.min-bid');
+        const minBid = parseInt(minBidEl.textContent.replace(/[€,]/g, ''));
+        
+        openBidModal(auctionId, playerName, currentBid, minBid);
+      });
+    });
+
+    // Sell button clicks
+    document.querySelectorAll('.sell-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const playerId = btn.getAttribute('data-player-id');
+        const playerCard = btn.closest('.player-card');
+        const playerName = playerCard.querySelector('.player-name').textContent;
+        const sellPriceText = playerCard.querySelector('.sell-price').textContent;
+        const recommendedPrice = parseInt(sellPriceText.replace(/[€,]/g, ''));
+        
+        openSellModal(playerId, playerName, recommendedPrice);
+      });
+    });
+
+    // Update bid amount and remaining budget when typing
+    document.querySelectorAll('.bid-input').forEach(input => {
+      input.addEventListener('input', () => {
+        if (currentBidAuction) {
+          const bidAmount = parseInt(input.value) || 0;
+          const userBudget = 8450;
+          const remaining = userBudget - bidAmount;
+          
+          document.getElementById('bid-amount').textContent = `${bidAmount.toLocaleString()}€`;
+          document.getElementById('remaining-budget').textContent = `${remaining.toLocaleString()}€`;
+        }
+      });
+    });
+
+    // Modal event listeners
+    confirmBidBtn.addEventListener('click', placeBid);
+    confirmSellBtn.addEventListener('click', sellPlayer);
+    cancelBidBtn.addEventListener('click', handleCloseBidModal);
+    cancelSellBtn.addEventListener('click', handleCloseSellModal);
+    closeBidModal.addEventListener('click', handleCloseBidModal);
+    closeSellModal.addEventListener('click', handleCloseSellModal);
+
+    // Close modals when clicking outside
+    bidModal.addEventListener('click', (e) => {
+      if (e.target === bidModal) handleCloseBidModal();
+    });
+
+    sellModal.addEventListener('click', (e) => {
+      if (e.target === sellModal) handleCloseSellModal();
+    });
+
+    // Close modals with Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!bidModal.classList.contains('hidden')) handleCloseBidModal();
+        if (!sellModal.classList.contains('hidden')) handleCloseSellModal();
+      }
+    });
+  });
+</script>

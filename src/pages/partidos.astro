@@ -1,64 +1,1308 @@
 ---
-import DefaultLayout from '../layouts/DefaultLayout.astro'
-import { Media, Modal, Pagination } from 'accessible-astro-components'
+// src/pages/leagues/[id]/matches.astro
+import DefaultLayout from '../layouts/DefaultLayout.astro';
+import { supabase } from '../lib/supabase';
+
+const { id } = Astro.params;
+
+// Datos temporales de partidos LEC - luego los conectaremos a Supabase
+const matchesData = {
+  currentWeek: 3,
+  totalWeeks: 9,
+  weeks: [
+    {
+      week: 1,
+      status: "completed",
+      matches: [
+        {
+          id: 1,
+          teamA: "G2 Esports",
+          teamB: "Fnatic",
+          teamALogo: "🔵",
+          teamBLogo: "🟠",
+          scoreA: 2,
+          scoreB: 1,
+          date: "2024-01-15T18:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 2,
+          teamA: "Movistar KOI",
+          teamB: "BDS",
+          teamALogo: "🦁",
+          teamBLogo: "🛡️",
+          scoreA: 0,
+          scoreB: 2,
+          date: "2024-01-15T19:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 3,
+          teamA: "Team Heretics",
+          teamB: "Team Vitality",
+          teamALogo: "⚡",
+          teamBLogo: "🐝",
+          scoreA: 2,
+          scoreB: 0,
+          date: "2024-01-15T20:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 4,
+          teamA: "SK Gaming",
+          teamB: "Giantx",
+          teamALogo: "🔥",
+          teamBLogo: "⭐",
+          scoreA: 1,
+          scoreB: 2,
+          date: "2024-01-15T21:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 5,
+          teamA: "NAVI",
+          teamB: "KC",
+          teamALogo: "🎯",
+          teamBLogo: "⚔️",
+          scoreA: 2,
+          scoreB: 1,
+          date: "2024-01-15T22:00:00Z",
+          status: "completed"
+        }
+      ]
+    },
+    {
+      week: 2,
+      status: "completed",
+      matches: [
+        {
+          id: 6,
+          teamA: "Fnatic",
+          teamB: "Movistar KOI",
+          teamALogo: "🟠",
+          teamBLogo: "🦁",
+          scoreA: 2,
+          scoreB: 0,
+          date: "2024-01-22T18:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 7,
+          teamA: "G2 Esports",
+          teamB: "Team Heretics",
+          teamALogo: "🔵",
+          teamBLogo: "⚡",
+          scoreA: 1,
+          scoreB: 2,
+          date: "2024-01-22T19:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 8,
+          teamA: "BDS",
+          teamB: "Team Vitality",
+          teamALogo: "🛡️",
+          teamBLogo: "🐝",
+          scoreA: 2,
+          scoreB: 1,
+          date: "2024-01-22T20:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 9,
+          teamA: "Giantx",
+          teamB: "NAVI",
+          teamALogo: "⭐",
+          teamBLogo: "🎯",
+          scoreA: 0,
+          scoreB: 2,
+          date: "2024-01-22T21:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 10,
+          teamA: "KC",
+          teamB: "SK Gaming",
+          teamALogo: "⚔️",
+          teamBLogo: "🔥",
+          scoreA: 2,
+          scoreB: 1,
+          date: "2024-01-22T22:00:00Z",
+          status: "completed"
+        }
+      ]
+    },
+    {
+      week: 3,
+      status: "in_progress",
+      matches: [
+        {
+          id: 11,
+          teamA: "G2 Esports",
+          teamB: "BDS",
+          teamALogo: "🔵",
+          teamBLogo: "🛡️",
+          scoreA: 2,
+          scoreB: 0,
+          date: "2024-01-29T18:00:00Z",
+          status: "completed"
+        },
+        {
+          id: 12,
+          teamA: "Fnatic",
+          teamB: "Team Vitality",
+          teamALogo: "🟠",
+          teamBLogo: "🐝",
+          scoreA: 1,
+          scoreB: 1,
+          date: "2024-01-29T19:00:00Z",
+          status: "live"
+        },
+        {
+          id: 13,
+          teamA: "Movistar KOI",
+          teamB: "Giantx",
+          teamALogo: "🦁",
+          teamBLogo: "⭐",
+          scoreA: null,
+          scoreB: null,
+          date: "2024-01-29T20:00:00Z",
+          status: "scheduled"
+        },
+        {
+          id: 14,
+          teamA: "Team Heretics",
+          teamB: "SK Gaming",
+          teamALogo: "⚡",
+          teamBLogo: "🔥",
+          scoreA: null,
+          scoreB: null,
+          date: "2024-01-29T21:00:00Z",
+          status: "scheduled"
+        },
+        {
+          id: 15,
+          teamA: "NAVI",
+          teamB: "KC",
+          teamALogo: "🎯",
+          teamBLogo: "⚔️",
+          scoreA: null,
+          scoreB: null,
+          date: "2024-01-29T22:00:00Z",
+          status: "scheduled"
+        }
+      ]
+    }
+  ],
+  // Datos de puntuación por jugador (solo para partidos completados)
+  playerStats: {
+    11: { // Match ID
+      "G2 Esports": [
+        { name: "BrokenBlade", position: "TOP", kills: 3, deaths: 1, assists: 8, cs: 245, points: 67 },
+        { name: "Yike", position: "JUNGLE", kills: 2, deaths: 2, assists: 12, cs: 156, points: 54 },
+        { name: "Caps", position: "MID", kills: 8, deaths: 1, assists: 6, cs: 287, points: 89 },
+        { name: "Hans sama", position: "ADC", kills: 6, deaths: 0, assists: 9, cs: 312, points: 78 },
+        { name: "Mikyx", position: "SUPPORT", kills: 0, deaths: 3, assists: 19, cs: 45, points: 43 }
+      ],
+      "BDS": [
+        { name: "Adam", position: "TOP", kills: 1, deaths: 4, assists: 3, cs: 198, points: 23 },
+        { name: "Sheo", position: "JUNGLE", kills: 2, deaths: 3, assists: 5, cs: 134, points: 31 },
+        { name: "nuc", position: "MID", kills: 2, deaths: 5, assists: 4, cs: 234, points: 28 },
+        { name: "Ice", position: "ADC", kills: 2, deaths: 3, assists: 8, cs: 267, points: 34 },
+        { name: "Labrov", position: "SUPPORT", kills: 0, deaths: 4, assists: 7, cs: 32, points: 18 }
+      ]
+    }
+  }
+};
+
+// Obtener la semana seleccionada (por defecto la actual)
+const selectedWeek = matchesData.weeks.find(w => w.week === matchesData.currentWeek) || matchesData.weeks[0];
 ---
 
 <DefaultLayout title="Partidos">
-  <section>
-    <h1>Media</h1><br>
-    <p class="size-20">Lorem ipsum dolor sit amet.</p>
-  </section>
-  <section class="margin-32">
-    <div class="space-content">
-      <div class="contents">
-        <h2>Media overview</h2>
-        <p><em>Results: 1-6 of 24</em></p>
-      </div>
-      <button id="modal-trigger" class="button color-secondary">Add new media item</button>
-      <Modal
-        triggerId="modal-trigger"
-        title="Add media"
-        closeText="Cancel"
-      >
-        <p>You can use this component to include a form that adds a new media item to the list.</p>
-      </Modal>
-      <div class="grid small-grid-1 medium-grid-2 large-grid-3 equal-height">
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=2344&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1608178398319-48f814d0750c?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1758&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1454789548928-9efd52dc4031?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1760&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1590907047706-ee9c08cf3189?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1760&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1446941611757-91d2c3bd3d45?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1402&q=80"
-        />
-        <Media 
-          classes="media radius-large elevation-400"
-          src="https://images.unsplash.com/photo-1536697246787-1f7ae568d89a?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1287&q=80"
-        />
+  <div class="matches-container">
+    <!-- League Sub-Navigation -->
+    <div class="league-subnav">
+      <div class="subnav-container">
+        <div class="league-info">
+          <h1 class="league-name">Liga de ejemplo</h1>
+          <span class="league-status active">Activa</span>
+        </div>
+        
+        <nav class="subnav-menu">
+          <a href={`/leagues/${id}/team`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Mi Equipo
+          </a>
+          <a href={`/leagues/${id}/market`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            Mercado
+          </a>
+          <a href={`/leagues/${id}/standings`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 6l4-4 4 4"></path>
+              <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path>
+              <path d="M20 22l-6.828-6.828A4 4 0 0 1 12 12.3V2"></path>
+            </svg>
+            Clasificación
+          </a>
+          <a href={`/leagues/${id}/matches`} class="subnav-link active">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Partidos
+          </a>
+          <a href={`/leagues/${id}/activity`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+              <path d="M12 6v6l4 2"></path>
+            </svg>
+            Actividad
+          </a>
+        </nav>
       </div>
     </div>
-    <div class="grid align-horizontal margin-32">
-      <Pagination />
+
+    <!-- Matches Header -->
+    <div class="matches-header">
+      <div class="header-info">
+        <h2 class="page-title">Partidos LEC</h2>
+        <p class="page-subtitle">Resultados y puntuaciones de jugadores</p>
+      </div>
+      
+      <div class="week-selector">
+        <label for="week-select" class="selector-label">Jornada:</label>
+        <select id="week-select" class="week-dropdown">
+          {matchesData.weeks.map(week => (
+            <option value={week.week} selected={week.week === matchesData.currentWeek}>
+              Jornada {week.week} {week.week === matchesData.currentWeek ? '(Actual)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
-  </section>
+
+    <!-- Week Status -->
+    <div class="week-status">
+      <div class="status-indicator">
+        <div class={`status-badge ${selectedWeek.status}`}>
+          {selectedWeek.status === 'completed' && (
+            <>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22,4 12,14.01 9,11.01"></polyline>
+              </svg>
+              Jornada Completada
+            </>
+          )}
+          {selectedWeek.status === 'in_progress' && (
+            <>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12,6 12,12 16,14"></polyline>
+              </svg>
+              En Progreso
+            </>
+          )}
+          {selectedWeek.status === 'scheduled' && (
+            <>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+              Programada
+            </>
+          )}
+        </div>
+        <span class="status-text">Jornada {selectedWeek.week}</span>
+      </div>
+    </div>
+
+    <!-- Matches Grid -->
+    <div class="matches-content">
+      <div class="matches-grid">
+        {selectedWeek.matches.map(match => (
+          <div class="match-card" data-match-id={match.id}>
+            <div class="match-header">
+              <div class="match-time">
+                {new Date(match.date).toLocaleString('es-ES', {
+                  weekday: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+              <div class={`match-status ${match.status}`}>
+                {match.status === 'completed' && 'Finalizado'}
+                {match.status === 'live' && 'EN VIVO'}
+                {match.status === 'scheduled' && 'Programado'}
+              </div>
+            </div>
+            
+            <div class="match-teams">
+              <div class="team team-a">
+                <div class="team-logo">{match.teamALogo}</div>
+                <div class="team-info">
+                  <span class="team-name">{match.teamA}</span>
+                </div>
+                <div class="team-score">
+                  {match.scoreA !== null ? match.scoreA : '-'}
+                </div>
+              </div>
+              
+              <div class="match-vs">VS</div>
+              
+              <div class="team team-b">
+                <div class="team-score">
+                  {match.scoreB !== null ? match.scoreB : '-'}
+                </div>
+                <div class="team-info">
+                  <span class="team-name">{match.teamB}</span>
+                </div>
+                <div class="team-logo">{match.teamBLogo}</div>
+              </div>
+            </div>
+            
+            {match.status === 'completed' && (
+              <div class="match-actions">
+                <button class="view-stats-btn" data-match-id={match.id}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 19c-5 0-8-3-8-8s3-8 8-8 8 3 8 8c0 1.6-.4 3-.9 4.3l4.2 4.2a1 1 0 0 1-1.4 1.4l-4.2-4.2A8 8 0 0 1 9 19Z"></path>
+                  </svg>
+                  Ver Estadísticas
+                </button>
+              </div>
+            )}
+            
+            {match.status === 'live' && (
+              <div class="live-indicator">
+                <div class="live-dot"></div>
+                <span>Partido en directo</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <!-- Match Stats Modal -->
+    <div id="stats-modal" class="modal hidden">
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h3>Estadísticas del Partido</h3>
+          <button class="modal-close" id="close-stats-modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="stats-loading" class="loading-state">
+            <div class="spinner"></div>
+            <span>Cargando estadísticas...</span>
+          </div>
+          
+          <div id="stats-content" class="stats-details hidden">
+            <div class="match-summary">
+              <div class="summary-teams">
+                <div class="summary-team">
+                  <span class="summary-logo" id="summary-team-a-logo"></span>
+                  <span class="summary-name" id="summary-team-a"></span>
+                  <span class="summary-score" id="summary-score-a"></span>
+                </div>
+                <div class="summary-vs">VS</div>
+                <div class="summary-team">
+                  <span class="summary-score" id="summary-score-b"></span>
+                  <span class="summary-name" id="summary-team-b"></span>
+                  <span class="summary-logo" id="summary-team-b-logo"></span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="teams-stats">
+              <div class="team-stats-section">
+                <h4 id="team-a-name"></h4>
+                <div class="players-stats" id="team-a-stats">
+                  <!-- Team A players will be populated here -->
+                </div>
+              </div>
+              
+              <div class="team-stats-section">
+                <h4 id="team-b-name"></h4>
+                <div class="players-stats" id="team-b-stats">
+                  <!-- Team B players will be populated here -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </DefaultLayout>
 
-<style lang="scss" is:global>
-  .media {
-    width: 100%;
-    max-height: 250px;
-    object-fit: cover;
+<style>
+  /* League Sub-Navigation - Same as other pages */
+  .league-subnav {
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 2rem;
+  }
+
+  .subnav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .league-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .league-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .league-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .league-status.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .subnav-menu {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .subnav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: #64748b;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .subnav-link:hover {
+    background: #f8fafc;
+    color: #475569;
+  }
+
+  .subnav-link.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+
+  .subnav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Matches Container */
+  .matches-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* Matches Header */
+  .matches-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+  }
+
+  .header-info {
+    flex: 1;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .page-subtitle {
+    color: #64748b;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .week-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .selector-label {
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .week-dropdown {
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: white;
+    font-size: 0.875rem;
+    cursor: pointer;
+    min-width: 180px;
+  }
+
+  .week-dropdown:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  /* Week Status */
+  .week-status {
+    margin-bottom: 2rem;
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  .status-badge svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .status-badge.completed {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .status-badge.in_progress {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-badge.scheduled {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  .status-text {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  /* Matches Grid */
+  .matches-content {
+    margin-bottom: 2rem;
+  }
+
+  .matches-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .match-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .match-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .match-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .match-time {
+    font-size: 0.875rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .match-status {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .match-status.completed {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .match-status.live {
+    background: #fef2f2;
+    color: #dc2626;
+    animation: pulse 2s infinite;
+  }
+
+  .match-status.scheduled {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  /* Match Teams */
+  .match-teams {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .team {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .team.team-b {
+    flex-direction: row-reverse;
+  }
+
+  .team-logo {
+    font-size: 2rem;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .team-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .team.team-b .team-info {
+    text-align: right;
+  }
+
+  .team-name {
+    font-weight: 600;
+    color: #1a202c;
+    font-size: 0.875rem;
+  }
+
+  .team-score {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .match-vs {
+    padding: 0 1rem;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  /* Match Actions */
+  .match-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .view-stats-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .view-stats-btn:hover {
+    background: #1d4ed8;
+  }
+
+  .view-stats-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Live Indicator */
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+    color: #dc2626;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    background: #dc2626;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* Modal */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-content.large {
+    max-width: 800px;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #64748b;
+  }
+
+  .modal-close svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .modal-body {
+    margin-bottom: 1.5rem;
+  }
+
+  /* Loading State */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    color: #64748b;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Stats Details */
+  .stats-details {
+    display: grid;
+    gap: 2rem;
+  }
+
+  .match-summary {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .summary-teams {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+  }
+
+  .summary-team {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .summary-logo {
+    font-size: 2rem;
+  }
+
+  .summary-name {
+    font-weight: 600;
+    color: #1a202c;
+  }
+
+  .summary-score {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #3b82f6;
+  }
+
+  .summary-vs {
+    color: #64748b;
+    font-weight: 600;
+  }
+
+  /* Teams Stats */
+  .teams-stats {
+    display: grid;
+    gap: 2rem;
+  }
+
+  .team-stats-section h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: #1a202c;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .players-stats {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .player-stat-row {
+    display: grid;
+    grid-template-columns: 60px 1fr 80px 80px 80px 100px 80px;
+    align-items: center;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    gap: 1rem;
+  }
+
+  .player-position {
+    background: #3b82f6;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    width: 50px;
+  }
+
+  .player-name {
+    font-weight: 600;
+    color: #1a202c;
+  }
+
+  .stat-value {
+    text-align: center;
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.875rem;
+  }
+
+  .kda-stat {
+    font-weight: 600;
+    color: #059669;
+  }
+
+  .points-stat {
+    font-weight: 700;
+    color: #3b82f6;
+    font-size: 1rem;
+  }
+
+  .stat-header {
+    display: grid;
+    grid-template-columns: 60px 1fr 80px 80px 80px 100px 80px;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background: #f8fafc;
+    border-radius: 6px;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-header-cell {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .stat-header-cell:first-child,
+  .stat-header-cell:nth-child(2) {
+    text-align: left;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .subnav-container {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .subnav-menu {
+      overflow-x: auto;
+      width: 100%;
+      padding-bottom: 0.5rem;
+    }
+
+    .matches-container {
+      padding: 0 1rem;
+    }
+
+    .matches-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .matches-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .player-stat-row,
+    .stat-header {
+      grid-template-columns: 50px 1fr 60px 60px 60px 80px 60px;
+      gap: 0.5rem;
+    }
+
+    .teams-stats {
+      gap: 1.5rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .subnav-link span {
+      display: none;
+    }
+
+    .subnav-link {
+      padding: 0.75rem;
+    }
+
+    .match-teams {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .team {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .team.team-b {
+      flex-direction: row;
+    }
+
+    .team.team-b .team-info {
+      text-align: left;
+    }
+
+    .match-vs {
+      order: -1;
+      padding: 0.5rem 0;
+    }
+
+    .summary-teams {
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .player-stat-row,
+    .stat-header {
+      grid-template-columns: 40px 1fr 50px 50px 60px;
+      font-size: 0.75rem;
+    }
+
+    .stat-value:nth-child(6),
+    .stat-value:nth-child(7),
+    .stat-header-cell:nth-child(6),
+    .stat-header-cell:nth-child(7) {
+      display: none;
+    }
   }
 </style>
+
+<script>
+  // Match stats functionality
+  let currentMatchData = null;
+
+  // DOM elements
+  const statsModal = document.getElementById('stats-modal');
+  const closeStatsModal = document.getElementById('close-stats-modal');
+  const statsLoading = document.getElementById('stats-loading');
+  const statsContent = document.getElementById('stats-content');
+  const weekSelect = document.getElementById('week-select');
+
+  // Mock player stats data
+  const matchPlayerStats = {
+    11: { // Match ID
+      teamA: "G2 Esports",
+      teamB: "BDS",
+      teamALogo: "🔵",
+      teamBLogo: "🛡️",
+      scoreA: 2,
+      scoreB: 0,
+      players: {
+        "G2 Esports": [
+          { name: "BrokenBlade", position: "TOP", kills: 3, deaths: 1, assists: 8, cs: 245, points: 67 },
+          { name: "Yike", position: "JUNGLE", kills: 2, deaths: 2, assists: 12, cs: 156, points: 54 },
+          { name: "Caps", position: "MID", kills: 8, deaths: 1, assists: 6, cs: 287, points: 89 },
+          { name: "Hans sama", position: "ADC", kills: 6, deaths: 0, assists: 9, cs: 312, points: 78 },
+          { name: "Mikyx", position: "SUPPORT", kills: 0, deaths: 3, assists: 19, cs: 45, points: 43 }
+        ],
+        "BDS": [
+          { name: "Adam", position: "TOP", kills: 1, deaths: 4, assists: 3, cs: 198, points: 23 },
+          { name: "Sheo", position: "JUNGLE", kills: 2, deaths: 3, assists: 5, cs: 134, points: 31 },
+          { name: "nuc", position: "MID", kills: 2, deaths: 5, assists: 4, cs: 234, points: 28 },
+          { name: "Ice", position: "ADC", kills: 2, deaths: 3, assists: 8, cs: 267, points: 34 },
+          { name: "Labrov", position: "SUPPORT", kills: 0, deaths: 4, assists: 7, cs: 32, points: 18 }
+        ]
+      }
+    }
+  };
+
+  // Week selector functionality
+  function initWeekSelector() {
+    weekSelect.addEventListener('change', function() {
+      const selectedWeek = parseInt(this.value);
+      // Here you would reload the page with the selected week
+      // For now, we'll just log it
+      console.log('Selected week:', selectedWeek);
+      // In a real app: window.location.href = `/leagues/${leagueId}/matches?week=${selectedWeek}`;
+    });
+  }
+
+  // Stats modal functions
+  function openStatsModal(matchId) {
+    const matchData = matchPlayerStats[matchId];
+    
+    if (!matchData) {
+      console.error('No match data found for match ID:', matchId);
+      return;
+    }
+
+    currentMatchData = matchData;
+    
+    // Show loading state
+    statsLoading.classList.remove('hidden');
+    statsContent.classList.add('hidden');
+    
+    statsModal.classList.remove('hidden');
+    
+    // Simulate loading stats data
+    loadMatchStats(matchData);
+  }
+
+  function closeStatsModalHandler() {
+    statsModal.classList.add('hidden');
+    currentMatchData = null;
+  }
+
+  async function loadMatchStats(matchData) {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Populate match summary
+      document.getElementById('summary-team-a-logo').textContent = matchData.teamALogo;
+      document.getElementById('summary-team-a').textContent = matchData.teamA;
+      document.getElementById('summary-score-a').textContent = matchData.scoreA;
+      document.getElementById('summary-team-b-logo').textContent = matchData.teamBLogo;
+      document.getElementById('summary-team-b').textContent = matchData.teamB;
+      document.getElementById('summary-score-b').textContent = matchData.scoreB;
+      
+      // Populate team names
+      document.getElementById('team-a-name').textContent = matchData.teamA;
+      document.getElementById('team-b-name').textContent = matchData.teamB;
+      
+      // Populate team A stats
+      const teamAStats = document.getElementById('team-a-stats');
+      teamAStats.innerHTML = createStatsHeader() + createPlayersStats(matchData.players[matchData.teamA]);
+      
+      // Populate team B stats
+      const teamBStats = document.getElementById('team-b-stats');
+      teamBStats.innerHTML = createStatsHeader() + createPlayersStats(matchData.players[matchData.teamB]);
+      
+      // Hide loading, show content
+      statsLoading.classList.add('hidden');
+      statsContent.classList.remove('hidden');
+      
+    } catch (error) {
+      console.error('Error loading match stats:', error);
+      statsLoading.innerHTML = '<p>Error al cargar las estadísticas</p>';
+    }
+  }
+
+  function createStatsHeader() {
+    return `
+      <div class="stat-header">
+        <div class="stat-header-cell">Pos</div>
+        <div class="stat-header-cell">Jugador</div>
+        <div class="stat-header-cell">K</div>
+        <div class="stat-header-cell">D</div>
+        <div class="stat-header-cell">A</div>
+        <div class="stat-header-cell">CS</div>
+        <div class="stat-header-cell">Puntos</div>
+      </div>
+    `;
+  }
+
+  function createPlayersStats(players) {
+    return players.map(player => `
+      <div class="player-stat-row">
+        <div class="player-position">${player.position}</div>
+        <div class="player-name">${player.name}</div>
+        <div class="stat-value">${player.kills}</div>
+        <div class="stat-value">${player.deaths}</div>
+        <div class="stat-value">${player.assists}</div>
+        <div class="stat-value">${player.cs}</div>
+        <div class="stat-value points-stat">${player.points}</div>
+      </div>
+    `).join('');
+  }
+
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize week selector
+    initWeekSelector();
+
+    // View stats button clicks
+    document.querySelectorAll('.view-stats-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const matchId = parseInt(btn.getAttribute('data-match-id'));
+        openStatsModal(matchId);
+      });
+    });
+
+    // Modal event listeners
+    closeStatsModal.addEventListener('click', closeStatsModalHandler);
+
+    // Close modal when clicking outside
+    statsModal.addEventListener('click', (e) => {
+      if (e.target === statsModal) {
+        closeStatsModalHandler();
+      }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !statsModal.classList.contains('hidden')) {
+        closeStatsModalHandler();
+      }
+    });
+  });
+</script>

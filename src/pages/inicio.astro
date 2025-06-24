@@ -1,0 +1,51 @@
+---
+import DefaultLayout from '../layouts/DefaultLayout.astro'
+import LeagueActions from '../components/LeagueActions.astro'
+import GameRules from '../components/GameRules.astro'
+---
+
+<DefaultLayout title="Inicio">
+  <section>
+    <h1>¡Bienvenido a LEC Fantasy!</h1><br>
+  </section>
+
+  <section class="section-leagues">
+  <div class="leagues-wrapper">
+    <div class="league-actions">
+      <LeagueActions />
+    </div>
+    <div class="game-rules">
+      <GameRules />
+    </div>
+  </div>
+</section>
+
+<style lang="scss">
+  @use '../assets/scss/base/space' as *;
+
+  .section-leagues {
+    margin-top: $space-12;
+    display: flex;
+    justify-content: center;
+  }
+
+  .leagues-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: $space-32;
+    width: 100%;
+    max-width: 1200px;
+    padding: 0 $space-16;
+
+    @media (min-width: 768px) {
+      flex-direction: row;
+      justify-content: center;
+    }
+
+    > div {
+      flex: 1;
+      max-width: 500px;
+    }
+  }
+</style>
+</DefaultLayout>

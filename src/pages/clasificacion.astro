@@ -1,28 +1,1404 @@
 ---
-import DefaultLayout from '../layouts/DefaultLayout.astro'
-import EmpyState from '../components/EmpyState.astro'
-import { Modal } from 'accessible-astro-components'
+// src/pages/leagues/[id]/standings.astro
+import DefaultLayout from '../layouts/DefaultLayout.astro';
+import { supabase } from '../lib/supabase';
+
+const { id } = Astro.params;
+
+// Datos temporales de clasificación - luego los conectaremos a Supabase
+const standingsData = {
+  leagueInfo: {
+    name: "Liga de Amigos",
+    participants: 8,
+    currentWeek: 3,
+    totalWeeks: 9
+  },
+  rankings: [
+    {
+      position: 1,
+      userId: "user1",
+      username: "Player1",
+      teamName: "Equipo 1",
+      totalPoints: 1847,
+      weeklyPoints: 287,
+      weeklyChange: "+2",
+      budget: 2450,
+      avatar: "P"
+    },
+    {
+      position: 2,
+      userId: "user2", 
+      username: "Player2",
+      teamName: "Equipo 2",
+      totalPoints: 1792,
+      weeklyPoints: 245,
+      weeklyChange: "-1",
+      budget: 3200,
+      avatar: "F"
+    },
+    {
+      position: 3,
+      userId: "user3",
+      username: "Player3",
+      teamName: "Equipo 3",
+      totalPoints: 1734,
+      weeklyPoints: 312,
+      weeklyChange: "+1",
+      budget: 1800,
+      avatar: "P"
+    },
+    {
+      position: 4,
+      userId: "current",
+      username: "daviddelolmo",
+      teamName: "daviddelolmo",
+      totalPoints: 1689,
+      weeklyPoints: 234,
+      weeklyChange: "=",
+      budget: 8450,
+      avatar: "T",
+      isCurrentUser: true
+    },
+    {
+      position: 5,
+      userId: "user5",
+      username: "Player5",
+      teamName: "Equipo 5",
+      totalPoints: 1623,
+      weeklyPoints: 198,
+      weeklyChange: "-2",
+      budget: 4500,
+      avatar: "L"
+    },
+    {
+      position: 6,
+      userId: "user6",
+      username: "Player6",
+      teamName: "Equipo 6",
+      totalPoints: 1567,
+      weeklyPoints: 267,
+      weeklyChange: "+1",
+      budget: 6700,
+      avatar: "R"
+    },
+    {
+      position: 7,
+      userId: "user7",
+      username: "Player7",
+      teamName: "Equipo 7",
+      totalPoints: 1489,
+      weeklyPoints: 178,
+      weeklyChange: "-1",
+      budget: 5200,
+      avatar: "O"
+    },
+    {
+      position: 8,
+      userId: "user8",
+      username: "Player8",
+      teamName: "Equipo 8",
+      totalPoints: 1423,
+      weeklyPoints: 156,
+      weeklyChange: "=",
+      budget: 7800,
+      avatar: "C"
+    }
+  ],
+  teamDetails: {
+    "user1": {
+      starters: [
+        { name: "Odoamne", position: "TOP", team: "BDS", points: 67 },
+        { name: "Elyoya", position: "JUNGLE", team: "MAD", points: 89 },
+        { name: "Caps", position: "MID", team: "G2", points: 134 },
+        { name: "Flakked", position: "ADC", team: "G2", points: 98 },
+        { name: "Targamas", position: "SUPPORT", team: "G2", points: 56 }
+      ]
+    }
+  }
+};
 ---
 
 <DefaultLayout title="Clasificación">
-  <section>
-    <h1>Messages</h1><br>
-    <p class="size-20">Lorem ipsum dolor sit amet.</p>
-  </section>
-  <section class="margin-32">
-    <div class="space-content">
-      <h2>Messages overview</h2>
-      <EmpyState>
-        You haven't added any messages yet. Start by adding some.
-      </EmpyState>
-      <button id="modal-trigger" class="button color-secondary">Add your first message</button>
-      <Modal
-        triggerId="modal-trigger"
-        title="Add message"
-        closeText="Cancel"
-      >
-        <p>You can use this component to include a form that adds a new message to the list.</p>
-      </Modal>
+  <div class="standings-container">
+    <!-- League Sub-Navigation -->
+    <div class="league-subnav">
+      <div class="subnav-container">
+        <div class="league-info">
+          <h1 class="league-name">Liga de ejemplo</h1>
+          <span class="league-status active">Activa</span>
+        </div>
+        
+        <nav class="subnav-menu">
+          <a href={`/leagues/${id}/team`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Mi Equipo
+          </a>
+          <a href={`/leagues/${id}/market`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="21" r="1"></circle>
+              <circle cx="20" cy="21" r="1"></circle>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            Mercado
+          </a>
+          <a href={`/leagues/${id}/standings`} class="subnav-link active">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 6l4-4 4 4"></path>
+              <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path>
+              <path d="M20 22l-6.828-6.828A4 4 0 0 1 12 12.3V2"></path>
+            </svg>
+            Clasificación
+          </a>
+          <a href={`/leagues/${id}/matches`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Partidos
+          </a>
+          <a href={`/leagues/${id}/activity`} class="subnav-link">
+            <svg class="subnav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+              <path d="M12 6v6l4 2"></path>
+            </svg>
+            Actividad
+          </a>
+        </nav>
+      </div>
     </div>
-  </section>
+
+    <!-- Standings Header -->
+    <div class="standings-header">
+      <div class="header-info">
+        <h2 class="page-title">Clasificación</h2>
+        <p class="page-subtitle">Rankings y equipos de la liga</p>
+      </div>
+      
+      <div class="league-stats">
+        <div class="stat-card">
+          <div class="stat-icon participants">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Participantes</span>
+            <span class="stat-value">{standingsData.leagueInfo.participants}</span>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon week">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Jornada</span>
+            <span class="stat-value">{standingsData.leagueInfo.currentWeek}/{standingsData.leagueInfo.totalWeeks}</span>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon progress">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22,4 12,14.01 9,11.01"></polyline>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Progreso</span>
+            <span class="stat-value">{Math.round((standingsData.leagueInfo.currentWeek / standingsData.leagueInfo.totalWeeks) * 100)}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="standings-content">
+      <!-- Rankings Table -->
+      <div class="rankings-section">
+        <div class="section-header">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 6l4-4 4 4"></path>
+              <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"></path>
+              <path d="M20 22l-6.828-6.828A4 4 0 0 1 12 12.3V2"></path>
+            </svg>
+            Clasificación General
+          </h3>
+          <div class="view-toggles">
+            <button class="toggle-btn active" data-view="total">Puntos Totales</button>
+            <button class="toggle-btn" data-view="weekly">Jornada Actual</button>
+          </div>
+        </div>
+        
+        <div class="rankings-table">
+          <div class="table-header">
+            <div class="header-cell position">Pos</div>
+            <div class="header-cell user">Usuario</div>
+            <div class="header-cell team">Equipo</div>
+            <div class="header-cell points">Puntos</div>
+            <div class="header-cell weekly">Jornada</div>
+            <div class="header-cell change">Cambio</div>
+            <div class="header-cell budget">Presupuesto</div>
+            <div class="header-cell actions">Acciones</div>
+          </div>
+          
+          <div class="table-body">
+            {standingsData.rankings.map((player, index) => (
+              <div class={`table-row ${player.isCurrentUser ? 'current-user' : ''}`} data-user-id={player.userId}>
+                <div class="table-cell position">
+                  <div class="position-badge">
+                    {player.position <= 3 ? (
+                      <div class={`medal medal-${player.position}`}>
+                        {player.position === 1 && '🥇'}
+                        {player.position === 2 && '🥈'}
+                        {player.position === 3 && '🥉'}
+                      </div>
+                    ) : (
+                      <span class="position-number">{player.position}</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div class="table-cell user">
+                  <div class="user-info">
+                    <div class="user-avatar">
+                      <span>{player.avatar}</span>
+                    </div>
+                    <div class="user-details">
+                      <span class="username">{player.username}</span>
+                      {player.isCurrentUser && <span class="you-badge">Tú</span>}
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="table-cell team">
+                  <span class="team-name">{player.teamName}</span>
+                </div>
+                
+                <div class="table-cell points">
+                  <span class="points-value">{player.totalPoints.toLocaleString()}</span>
+                </div>
+                
+                <div class="table-cell weekly">
+                  <span class="weekly-points">{player.weeklyPoints}</span>
+                </div>
+                
+                <div class="table-cell change">
+                  <div class={`change-indicator ${
+                    player.weeklyChange.includes('+') ? 'positive' : 
+                    player.weeklyChange.includes('-') ? 'negative' : 'neutral'
+                  }`}>
+                    {player.weeklyChange.includes('+') && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="18,15 12,9 6,15"></polyline>
+                      </svg>
+                    )}
+                    {player.weeklyChange.includes('-') && (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="6,9 12,15 18,9"></polyline>
+                      </svg>
+                    )}
+                    <span>{player.weeklyChange}</span>
+                  </div>
+                </div>
+                
+                <div class="table-cell budget">
+                  <span class="budget-value">{player.budget.toLocaleString()}€</span>
+                </div>
+                
+                <div class="table-cell actions">
+                  <button class="view-team-btn" data-user-id={player.userId} data-username={player.username}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    Ver Equipo
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Performers -->
+      <div class="performers-section">
+        <div class="section-header">
+          <h3 class="section-title">
+            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            Destacados de la Jornada
+          </h3>
+        </div>
+        
+        <div class="performers-grid">
+          <div class="performer-card best">
+            <div class="card-header">
+              <div class="card-icon">🏆</div>
+              <h4>Mejor de la Jornada</h4>
+            </div>
+            <div class="performer-info">
+              <span class="performer-name">Player123</span>
+              <span class="performer-points">312 puntos</span>
+            </div>
+          </div>
+          
+          <div class="performer-card worst">
+            <div class="card-header">
+              <div class="card-icon">📉</div>
+              <h4>Necesita Mejorar</h4>
+            </div>
+            <div class="performer-info">
+              <span class="performer-name">Casual</span>
+              <span class="performer-points">156 puntos</span>
+            </div>
+          </div>
+          
+          <div class="performer-card trending">
+            <div class="card-header">
+              <div class="card-icon">📈</div>
+              <h4>En Racha</h4>
+            </div>
+            <div class="performer-info">
+              <span class="performer-name">ProGamer</span>
+              <span class="performer-points">+2 posiciones</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team Details Modal -->
+    <div id="team-modal" class="modal hidden">
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h3>Equipo de <span id="modal-username"></span></h3>
+          <button class="modal-close" id="close-team-modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="team-loading" class="loading-state">
+            <div class="spinner"></div>
+            <span>Cargando equipo...</span>
+          </div>
+          
+          <div id="team-content" class="team-details hidden">
+            <div class="team-formation">
+              <h4>Equipo Titular</h4>
+              <div class="formation-grid">
+                <div id="team-players">
+                  <!-- Players will be populated by JavaScript -->
+                </div>
+              </div>
+            </div>
+            
+            <div class="team-stats">
+              <div class="stat-row">
+                <span class="stat-label">Valor Total:</span>
+                <span class="stat-value" id="team-value">-</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Puntos Jornada:</span>
+                <span class="stat-value" id="team-weekly-points">-</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-label">Puntos Totales:</span>
+                <span class="stat-value" id="team-total-points">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </DefaultLayout>
+
+<style>
+  /* League Sub-Navigation - Same as other pages */
+  .league-subnav {
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 2rem;
+  }
+
+  .subnav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .league-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .league-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .league-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .league-status.active {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .subnav-menu {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .subnav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: #64748b;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .subnav-link:hover {
+    background: #f8fafc;
+    color: #475569;
+  }
+
+  .subnav-link.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+  }
+
+  .subnav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Standings Container */
+  .standings-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* Standings Header */
+  .standings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+  }
+
+  .header-info {
+    flex: 1;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .page-subtitle {
+    color: #64748b;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .league-stats {
+    display: flex;
+    gap: 1rem;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 140px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+  }
+
+  .stat-icon.participants {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  }
+
+  .stat-icon.week {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  }
+
+  .stat-icon.progress {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+
+  .stat-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .stat-value {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #1a202c;
+  }
+
+  /* Standings Content */
+  .standings-content {
+    display: grid;
+    gap: 2rem;
+  }
+
+  /* Section Headers */
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .section-icon {
+    width: 20px;
+    height: 20px;
+    color: #3b82f6;
+  }
+
+  .view-toggles {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .toggle-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: white;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-btn:hover {
+    border-color: #cbd5e0;
+  }
+
+  .toggle-btn.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  }
+
+  /* Rankings Table */
+  .rankings-table {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .table-header {
+    display: grid;
+    grid-template-columns: 60px 200px 180px 120px 100px 100px 120px 120px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .header-cell {
+    padding: 1rem 0.75rem;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .table-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .table-row {
+    display: grid;
+    grid-template-columns: 60px 200px 180px 120px 100px 100px 120px 120px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.2s ease;
+  }
+
+  .table-row:hover {
+    background: #f8fafc;
+  }
+
+  .table-row.current-user {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+  }
+
+  .table-row.current-user:hover {
+    background: #dbeafe;
+  }
+
+  .table-cell {
+    padding: 1rem 0.75rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.875rem;
+  }
+
+  /* Position */
+  .position-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+  }
+
+  .medal {
+    font-size: 1.25rem;
+  }
+
+  .position-number {
+    font-weight: 600;
+    color: #64748b;
+    font-size: 1rem;
+  }
+
+  /* User Info */
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  .user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .username {
+    font-weight: 600;
+    color: #1a202c;
+  }
+
+  .you-badge {
+    background: #3b82f6;
+    color: white;
+    padding: 0.125rem 0.375rem;
+    border-radius: 8px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    width: fit-content;
+  }
+
+  /* Team */
+  .team-name {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  /* Points */
+  .points-value {
+    font-weight: 700;
+    color: #1a202c;
+    font-size: 1rem;
+  }
+
+  .weekly-points {
+    font-weight: 600;
+    color: #059669;
+  }
+
+  /* Change Indicator */
+  .change-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+  }
+
+  .change-indicator svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .change-indicator.positive {
+    color: #059669;
+  }
+
+  .change-indicator.negative {
+    color: #dc2626;
+  }
+
+  .change-indicator.neutral {
+    color: #64748b;
+  }
+
+  /* Budget */
+  .budget-value {
+    color: #f59e0b;
+    font-weight: 600;
+  }
+
+  /* Actions */
+  .view-team-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .view-team-btn:hover {
+    background: #1d4ed8;
+  }
+
+  .view-team-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Top Performers */
+  .performers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .performer-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .performer-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+
+  .performer-card.best {
+    border-left: 3px solid #10b981;
+  }
+
+  .performer-card.worst {
+    border-left: 3px solid #dc2626;
+  }
+
+  .performer-card.trending {
+    border-left: 3px solid #f59e0b;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .card-icon {
+    font-size: 1.5rem;
+  }
+
+  .card-header h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0;
+  }
+
+  .performer-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .performer-name {
+    font-weight: 600;
+    color: #1a202c;
+    font-size: 1.125rem;
+  }
+
+  .performer-points {
+    color: #64748b;
+    font-size: 0.875rem;
+  }
+
+  /* Modal */
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-content.large {
+    max-width: 700px;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .modal-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #64748b;
+  }
+
+  .modal-close svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .modal-body {
+    margin-bottom: 1.5rem;
+  }
+
+  /* Loading State */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    color: #64748b;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Team Details */
+  .team-details {
+    display: grid;
+    gap: 2rem;
+  }
+
+  .team-formation h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+    color: #1a202c;
+  }
+
+  .formation-grid {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  #team-players {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .team-player {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .player-position {
+    width: 32px;
+    height: 32px;
+    background: #3b82f6;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .player-info {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .player-details {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .player-name {
+    font-weight: 600;
+    color: #1a202c;
+    font-size: 0.875rem;
+  }
+
+  .player-team {
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+
+  .player-points {
+    font-weight: 600;
+    color: #059669;
+    font-size: 0.875rem;
+  }
+
+  /* Team Stats */
+  .team-stats {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .stat-row:last-child {
+    border-bottom: none;
+  }
+
+  .stat-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .stat-value {
+    font-weight: 600;
+    color: #1a202c;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Responsive */
+  @media (max-width: 1200px) {
+    .table-header,
+    .table-row {
+      grid-template-columns: 50px 160px 140px 100px 80px 80px 100px 100px;
+    }
+
+    .header-cell,
+    .table-cell {
+      padding: 0.75rem 0.5rem;
+      font-size: 0.8rem;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .subnav-container {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .subnav-menu {
+      overflow-x: auto;
+      width: 100%;
+      padding-bottom: 0.5rem;
+    }
+
+    .standings-container {
+      padding: 0 1rem;
+    }
+
+    .standings-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    .league-stats {
+      flex-direction: column;
+    }
+
+    .table-header,
+    .table-row {
+      grid-template-columns: 50px 140px 120px 80px 70px 70px 80px 90px;
+    }
+
+    .performers-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .subnav-link span {
+      display: none;
+    }
+
+    .subnav-link {
+      padding: 0.75rem;
+    }
+
+    .table-header,
+    .table-row {
+      grid-template-columns: 40px 120px 100px 70px 60px 60px 70px 80px;
+    }
+
+    .header-cell,
+    .table-cell {
+      padding: 0.5rem 0.25rem;
+      font-size: 0.75rem;
+    }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      font-size: 0.75rem;
+    }
+
+    .username {
+      font-size: 0.75rem;
+    }
+
+    .view-team-btn {
+      padding: 0.375rem 0.5rem;
+      font-size: 0.625rem;
+    }
+
+    .view-team-btn span {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .table-header,
+    .table-row {
+      grid-template-columns: 40px 1fr 60px 60px;
+    }
+
+    .header-cell.team,
+    .header-cell.weekly,
+    .header-cell.change,
+    .header-cell.budget,
+    .table-cell.team,
+    .table-cell.weekly, 
+    .table-cell.change,
+    .table-cell.budget {
+      display: none;
+    }
+
+    .header-cell.actions,
+    .table-cell.actions {
+      grid-column: 4;
+    }
+  }
+</style>
+
+<script>
+  // Team modal functionality
+  let currentTeamModal = null;
+
+  // DOM elements
+  const teamModal = document.getElementById('team-modal');
+  const closeTeamModal = document.getElementById('close-team-modal');
+  const modalUsername = document.getElementById('modal-username');
+  const teamLoading = document.getElementById('team-loading');
+  const teamContent = document.getElementById('team-content');
+  const teamPlayers = document.getElementById('team-players');
+
+  // Mock team data for demo
+  const mockTeamData = {
+    "user1": {
+      starters: [
+        { name: "Odoamne", position: "TOP", team: "BDS", points: 67 },
+        { name: "Elyoya", position: "JUNGLE", team: "MAD", points: 89 },
+        { name: "Caps", position: "MID", team: "G2", points: 134 },
+        { name: "Flakked", position: "ADC", team: "G2", points: 98 },
+        { name: "Targamas", position: "SUPPORT", team: "G2", points: 56 }
+      ],
+      totalValue: 45750,
+      weeklyPoints: 444,
+      totalPoints: 1847
+    },
+    "user2": {
+      starters: [
+        { name: "Wunder", position: "TOP", team: "FNC", points: 54 },
+        { name: "Razork", position: "JUNGLE", team: "FNC", points: 72 },
+        { name: "Humanoid", position: "MID", team: "FNC", points: 89 },
+        { name: "Noah", position: "ADC", team: "FNC", points: 76 },
+        { name: "Jun", position: "SUPPORT", team: "FNC", points: 43 }
+      ],
+      totalValue: 42300,
+      weeklyPoints: 334,
+      totalPoints: 1792
+    }
+  };
+
+  // View toggle functionality
+  function initViewToggles() {
+    const toggleBtns = document.querySelectorAll('.toggle-btn');
+    
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Remove active from all buttons
+        toggleBtns.forEach(b => b.classList.remove('active'));
+        // Add active to clicked button
+        btn.classList.add('active');
+        
+        const view = btn.getAttribute('data-view');
+        toggleView(view);
+      });
+    });
+  }
+
+  function toggleView(view) {
+    const rows = document.querySelectorAll('.table-row');
+    
+    if (view === 'weekly') {
+      // Sort by weekly points (you'd implement actual sorting here)
+      console.log('Sorting by weekly points');
+    } else {
+      // Sort by total points (default view)
+      console.log('Sorting by total points');
+    }
+  }
+
+  // Team modal functions
+  function openTeamModal(userId, username) {
+    currentTeamModal = { userId, username };
+    modalUsername.textContent = username;
+    
+    // Show loading state
+    teamLoading.classList.remove('hidden');
+    teamContent.classList.add('hidden');
+    
+    teamModal.classList.remove('hidden');
+    
+    // Simulate loading team data
+    loadTeamData(userId);
+  }
+
+  function closeTeamModalHandler() {
+    teamModal.classList.add('hidden');
+    currentTeamModal = null;
+  }
+
+  async function loadTeamData(userId) {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const teamData = mockTeamData[userId] || {
+        starters: [
+          { name: "Jugador 1", position: "TOP", team: "TEAM", points: 45 },
+          { name: "Jugador 2", position: "JUNGLE", team: "TEAM", points: 52 },
+          { name: "Jugador 3", position: "MID", team: "TEAM", points: 68 },
+          { name: "Jugador 4", position: "ADC", team: "TEAM", points: 41 },
+          { name: "Jugador 5", position: "SUPPORT", team: "TEAM", points: 38 }
+        ],
+        totalValue: 38500,
+        weeklyPoints: 244,
+        totalPoints: 1456
+      };
+      
+      // Populate team players
+      teamPlayers.innerHTML = '';
+      teamData.starters.forEach(player => {
+        const playerEl = document.createElement('div');
+        playerEl.className = 'team-player';
+        playerEl.innerHTML = `
+          <div class="player-position">${player.position}</div>
+          <div class="player-info">
+            <div class="player-details">
+              <span class="player-name">${player.name}</span>
+              <span class="player-team">${player.team}</span>
+            </div>
+            <span class="player-points">${player.points} pts</span>
+          </div>
+        `;
+        teamPlayers.appendChild(playerEl);
+      });
+      
+      // Update team stats
+      document.getElementById('team-value').textContent = `${teamData.totalValue.toLocaleString()}€`;
+      document.getElementById('team-weekly-points').textContent = `${teamData.weeklyPoints} pts`;
+      document.getElementById('team-total-points').textContent = `${teamData.totalPoints.toLocaleString()} pts`;
+      
+      // Hide loading, show content
+      teamLoading.classList.add('hidden');
+      teamContent.classList.remove('hidden');
+      
+    } catch (error) {
+      console.error('Error loading team data:', error);
+      // Handle error - you could show an error message
+      teamLoading.innerHTML = '<p>Error al cargar el equipo</p>';
+    }
+  }
+
+  // Event listeners
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize view toggles
+    initViewToggles();
+
+    // View team button clicks
+    document.querySelectorAll('.view-team-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const userId = btn.getAttribute('data-user-id');
+        const username = btn.getAttribute('data-username');
+        openTeamModal(userId, username);
+      });
+    });
+
+    // Modal event listeners
+    closeTeamModal.addEventListener('click', closeTeamModalHandler);
+
+    // Close modal when clicking outside
+    teamModal.addEventListener('click', (e) => {
+      if (e.target === teamModal) {
+        closeTeamModalHandler();
+      }
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !teamModal.classList.contains('hidden')) {
+        closeTeamModalHandler();
+      }
+    });
+  });
+</script>

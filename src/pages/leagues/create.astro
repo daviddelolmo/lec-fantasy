@@ -1,0 +1,264 @@
+---
+import DefaultLayout from '../../layouts/DefaultLayout.astro';
+import { supabase } from '../../lib/supabase';
+
+// Verificar autenticación del lado del servidor
+const { data: { session } } = await supabase.auth.getSession();
+
+if (!session) {
+  return Astro.redirect('/');
+}
+---
+
+<DefaultLayout title="Crear Liga">
+  <section class="space-content max-w-2xl mx-auto p-4">
+    <h1 class="text-3xl font-bold mb-4">Crear nueva liga</h1>
+    
+    <!-- Mostrar errores si existen -->
+    <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+    </div>
+    
+    <!-- Mostrar loading -->
+    <div id="loading-message" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+      Creando liga...
+    </div>
+
+    <!-- Temporal - debería redirigir a action="/api/leagues/create" -->
+    <form id="create-league-form" method="POST" action="/miequipo" class="space-y-6">
+      <div>
+        <label for="name" class="block text-sm font-medium mb-2">Nombre de la Liga</label>
+        <input type="text" name="name" id="name" required class="input w-full" placeholder="Ej: Liga de Amigos 2024" />
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-medium mb-2">Descripción</label>
+        <textarea name="description" id="description" rows="3" class="input w-full" placeholder="Describe tu liga..."></textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <label for="max_users" class="block text-sm font-medium mb-3">Máximo de Usuarios</label>
+          <select name="max_users" id="max_users" class="input w-full">
+            <option value="4">4 usuarios</option>
+            <option value="6">6 usuarios</option>
+            <option value="8" selected>8 usuarios</option>
+            <option value="10">10 usuarios</option>
+            <option value="12">12 usuarios</option>
+            <option value="14">14 usuarios</option>
+            <option value="16">16 usuarios</option>
+            <option value="18">18 usuarios</option>
+            <option value="20">20 usuarios</option>
+          </select>
+        </div>
+        <div>
+          <label for="budget_per_user" class="block text-sm font-medium mb-3">Presupuesto (€)</label>
+          <select name="budget_per_user" id="budget_per_user" class="input w-full">
+            <option value="5000">5,000€</option>
+            <option value="7500">7,500€</option>
+            <option value="10000" selected>10,000€</option>
+            <option value="12500">12,500€</option>
+            <option value="15000">15,000€</option>
+            <option value="20000">20,000€</option>
+            <option value="25000">25,000€</option>
+            <option value="30000">30,000€</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6">
+        <div>
+          <label for="market_duration_hours" class="block text-sm font-medium mb-3">Duración del mercado (h)</label>
+          <select name="market_duration_hours" id="market_duration_hours" class="input w-full">
+            <option value="6">6 horas</option>
+            <option value="12">12 horas</option>
+            <option value="18">18 horas</option>
+            <option value="24" selected>24 horas</option>
+            <option value="36">36 horas</option>
+            <option value="48">48 horas</option>
+            <option value="72">72 horas</option>
+          </select>
+        </div>
+        <div>
+          <label for="market_players_count" class="block text-sm font-medium mb-3">Jugadores por ronda</label>
+          <select name="market_players_count" id="market_players_count" class="input w-full">
+            <option value="2">2 jugadores</option>
+            <option value="3" selected>3 jugadores</option>
+            <option value="4">4 jugadores</option>
+            <option value="5">5 jugadores</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-6">
+        <button type="submit" class="button color-secondary">Crear Liga</button>
+      </div>
+    </form>
+  </section>
+</DefaultLayout>
+
+<style>
+  .input {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    background: white;
+  }
+
+  select.input {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 1rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding: 0.75rem 3.5rem 0.75rem 1rem;
+    appearance: none;
+    width: 100%;
+    min-width: 280px;
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .input:hover {
+    border-color: #d1d5db;
+  }
+
+  textarea.input {
+    resize: vertical;
+    min-height: 80px;
+  }
+
+  .button {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    margin-top: 2rem;
+  }
+
+  .button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  }
+
+  .button:active {
+    transform: translateY(0);
+  }
+
+  label {
+    color: #374151;
+    font-weight: 500;
+  }
+
+  h1 {
+    color: #1f2937;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  .button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Mejoras responsive */
+  @media (max-width: 640px) {
+    .grid-cols-2 {
+      grid-template-columns: 1fr;
+    }
+    
+    .input {
+      padding: 0.625rem 0.875rem;
+    }
+    
+    select.input {
+      padding: 0.625rem 3rem 0.625rem 0.875rem;
+      min-width: 100%;
+    }
+    
+    .button {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  import { supabase } from '../../lib/supabase.js';
+
+  const form = document.getElementById('create-league-form');
+  const errorMessage = document.getElementById('error-message');
+  const loadingMessage = document.getElementById('loading-message');
+  const submitButton = form.querySelector('button[type="submit"]');
+
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.classList.remove('hidden');
+    loadingMessage.classList.add('hidden');
+  }
+
+  function showLoading() {
+    loadingMessage.classList.remove('hidden');
+    errorMessage.classList.add('hidden');
+    submitButton.disabled = true;
+  }
+
+  function hideMessages() {
+    errorMessage.classList.add('hidden');
+    loadingMessage.classList.add('hidden');
+    submitButton.disabled = false;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showLoading();
+
+    try {
+      // Obtener el token de sesión actual
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        showError('Debes iniciar sesión para crear una liga');
+        return;
+      }
+
+      // Crear FormData del formulario
+      const formData = new FormData(form);
+
+      // Enviar request con token de autorización
+      const response = await fetch('/api/leagues/create', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        // Si es exitoso, la API redirigirá automáticamente
+        window.location.href = '/leagues'; // Fallback si no redirige
+      } else {
+        const error = await response.json();
+        showError(error.error || 'Error al crear la liga');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showError('Error de conexión. Inténtalo de nuevo.');
+    } finally {
+      hideMessages();
+    }
+  });
+</script>
