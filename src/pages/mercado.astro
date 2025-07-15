@@ -5,48 +5,190 @@ import { supabase } from '../lib/supabase';
 
 const { id } = Astro.params;
 
-// Datos temporales del mercado - luego los conectaremos a Supabase
+// Datos temporales - luego los conectaremos a Supabase
+const user_id = 'e01005c8-1f15-4ca7-a1e9-7d423b84cc77';
+const league_id = '586b1a73-3247-48ff-a8fa-48d17139fdfa';
+
+// Obtener el presupuesto del usuario
+const { data: userBudgetData, error: budgetError } = await supabase
+  .from('league_participants')
+  .select('budget_remaining')
+  .eq('user_id', user_id)
+  .eq('league_id', league_id)
+  .single();
+
+if (budgetError) {
+  console.error('Error al cargar el presupuesto:', budgetError.message);
+  throw new Error(budgetError.message);
+}
+
+// Obtener las subastas activas del mercado actual
+// Estas son las subastas que ya están configuradas y activas
+const { data: activeAuctionsRaw, error: auctionsError } = await supabase
+  .from('market_auctions')
+  .select(`
+    id,
+    seller_id,
+    current_bidder_id,
+    current_bid,
+    min_bid,
+    ends_at,
+    status,
+    lec_players!inner(id, name, position, team, market_value)
+  `)
+  .eq('status', 'active')
+  .gt('ends_at', new Date().toISOString())
+  .order('ends_at', { ascending: true });
+
+if (auctionsError) {
+  console.error('Error al cargar las subastas:', auctionsError.message);
+  throw new Error(auctionsError.message);
+}
+
+// Si no hay subastas activas, necesitamos crear nuevas con jugadores libres
+let activeAuctions = [];
+
+if (activeAuctionsRaw.length === 0) {
+  // Obtener jugadores libres (que no están en ninguna plantilla)
+  const { data: freePlayersRaw, error: freePlayersError } = await supabase
+    .from('lec_players')
+    .select('id, name, position, team, market_value')
+    .not('id', 'in', `(
+      SELECT player_id FROM user_teams 
+      WHERE league_id = '${league_id}'
+    )`);
+
+  if (freePlayersError) {
+    console.error('Error al obtener jugadores libres:', freePlayersError.message);
+    throw new Error(freePlayersError.message);
+  }
+
+  // Seleccionar 3 jugadores aleatorios
+  const shuffled = freePlayersRaw.sort(() => 0.5 - Math.random());
+  const selectedPlayers = shuffled.slice(0, 3);
+
+  // Crear nuevas subastas para estos jugadores
+  const now = new Date();
+  const auctionEndTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 horas desde ahora
+
+  const newAuctions = selectedPlayers.map(player => ({
+    seller_id: null, // No hay vendedor, son jugadores libres
+    current_bidder_id: null,
+    current_bid: 0,
+    min_bid: Math.floor(player.market_value * 0.5), // Puja mínima: 50% del valor de mercado
+    ends_at: auctionEndTime.toISOString(),
+    status: 'active',
+    player_id: player.id
+  }));
+
+  // Insertar las nuevas subastas en la base de datos
+  const { data: insertedAuctions, error: insertError } = await supabase
+    .from('market_auctions')
+    .insert(newAuctions)
+    .select(`
+      id,
+      seller_id,
+      current_bidder_id,
+      current_bid,
+      min_bid,
+      ends_at,
+      status,
+      player_id
+    `);
+
+  if (insertError) {
+    console.error('Error al crear nuevas subastas:', insertError.message);
+    throw new Error(insertError.message);
+  }
+
+  // Formatear las subastas recién creadas
+  activeAuctions = insertedAuctions.map(auction => {
+    const player = selectedPlayers.find(p => p.id === auction.player_id);
+    const endTime = new Date(auction.ends_at);
+    const now = new Date();
+    const timeLeft = endTime.getTime() - now.getTime();
+    
+    // Calcular tiempo restante en formato HH:MM:SS
+    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+    
+    const timeLeftFormatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    return {
+      id: auction.id,
+      player: {
+        id: player.id,
+        name: player.name,
+        position: player.position,
+        team: player.team,
+        value: player.market_value
+      },
+      currentBid: auction.current_bid,
+      minBid: auction.min_bid,
+      timeLeft: timeLeftFormatted,
+      bidCount: 0, // Nuevas subastas empiezan con 0 pujas
+      endTime: auction.ends_at,
+      userBid: null // No hay puja del usuario aún
+    };
+  });
+
+} else {
+  // Obtener las pujas del usuario para las subastas activas
+  const auctionIds = activeAuctionsRaw.map(auction => auction.id);
+  
+  const { data: userBids, error: userBidsError } = await supabase
+    .from('auction_bids')
+    .select('auction_id, bid_amount')
+    .eq('bidder_id', user_id)
+    .in('auction_id', auctionIds);
+
+  if (userBidsError) {
+    console.error('Error al obtener pujas del usuario:', userBidsError.message);
+  }
+
+  // Procesar las subastas activas existentes
+  activeAuctions = activeAuctionsRaw.map(auction => {
+    const player = auction.lec_players;
+    const endTime = new Date(auction.ends_at);
+    const now = new Date();
+    const timeLeft = endTime.getTime() - now.getTime();
+    
+    // Calcular tiempo restante en formato HH:MM:SS
+    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+    
+    const timeLeftFormatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Buscar la puja del usuario para esta subasta
+    const userBid = userBids?.find(bid => bid.auction_id === auction.id);
+    
+    return {
+      id: auction.id,
+      player: {
+        id: player.id,
+        name: player.name,
+        position: player.position,
+        team: player.team,
+        value: player.market_value
+      },
+      currentBid: auction.current_bid,
+      minBid: auction.min_bid,
+      timeLeft: timeLeftFormatted,
+      bidCount: auction.current_bid > 0 ? 1 : 0, // Estimación simple
+      endTime: auction.ends_at,
+      userBid: userBid ? userBid.bid_amount : null
+    };
+  });
+}
+
+// Datos del mercado
 const marketData = {
-  currentRound: 3,
-  timeRemaining: "04:32:45",
-  userBudget: 7340,
-  activeAuctions: [
-    {
-      id: 1,
-      player: { name: "BrokenBlade", position: "TOP", team: "G2", value: 8500 },
-      currentBid: 7200,
-      currentBidder: "Player1",
-      minBid: 7300,
-      timeLeft: "02:15:30",
-      bidCount: 12,
-      isUserHighest: false
-    },
-    {
-      id: 2,
-      player: { name: "Caliste", position: "ADC", team: "KC", value: 7800 },
-      currentBid: 6500,
-      currentBidder: "Player2",
-      minBid: 6600,
-      timeLeft: "01:45:12",
-      bidCount: 8,
-      isUserHighest: true
-    },
-    {
-      id: 3,
-      player: { name: "Mikyx", position: "SUPPORT", team: "FNC", value: 9200 },
-      currentBid: 8000,
-      currentBidder: "Player3",
-      minBid: 8100,
-      timeLeft: "03:22:18",
-      bidCount: 15,
-      isUserHighest: false
-    }
-  ],
-  userPlayers: [
-    { id: 11, name: "Canna", position: "TOP", team: "KC", value: 10000, sellPrice: 7500 },
-    { id: 12, name: "Razork", position: "JUNGLE", team: "FNC", value: 9500, sellPrice: 6800 },
-    { id: 13, name: "Caps", position: "MID", team: "G2", value: 12000, sellPrice: 9000 }
-  ]
+  currentRound: 3, // Esto podrías obtenerlo de una tabla de configuración
+  timeRemaining: activeAuctions.length > 0 ? activeAuctions[0].timeLeft : "00:00:00", // Tiempo de la primera subasta
+  userBudget: userBudgetData.budget_remaining,
+  activeAuctions
 };
 ---
 
@@ -169,196 +311,83 @@ const marketData = {
           <span class="section-count">{marketData.activeAuctions.length} jugadores</span>
         </div>
         
-        <div class="auctions-grid">
-          {marketData.activeAuctions.map(auction => (
-            <div class="auction-card" data-auction-id={auction.id}>
-              <div class="auction-header">
-                <div class="player-info">
-                  <div class="player-avatar">
-                    <span class="position-badge">{auction.player.position}</span>
-                  </div>
-                  <div class="player-details">
-                    <h4 class="player-name">{auction.player.name}</h4>
-                    <span class="player-team">{auction.player.team}</span>
-                    <span class="player-value">Valor: {auction.player.value.toLocaleString()}€</span>
-                  </div>
-                </div>
-                <div class="auction-timer">
-                  <span class="timer-label">Termina en</span>
-                  <span class="timer-value" data-countdown={auction.timeLeft}>{auction.timeLeft}</span>
-                </div>
-              </div>
-
-              <div class="auction-status">
-                <div class="current-bid">
-                  <span class="bid-label">Puja actual</span>
-                  <span class="bid-amount">{auction.currentBid.toLocaleString()}€</span>
-                  <span class="bid-user">por {auction.currentBidder}</span>
-                </div>
-                {auction.isUserHighest && (
-                  <div class="highest-bidder">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                      <polyline points="22,4 12,14.01 9,11.01"></polyline>
-                    </svg>
-                    Eres el mejor postor
-                  </div>
-                )}
-              </div>
-
-              <div class="auction-actions">
-                <div class="bid-input-group">
-                  <input 
-                    type="number" 
-                    class="bid-input" 
-                    min={auction.minBid}
-                    max={marketData.userBudget}
-                    placeholder={`Mín: ${auction.minBid.toLocaleString()}€`}
-                    data-auction-id={auction.id}
-                  />
-                  <button class="bid-btn" data-auction-id={auction.id}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M5 12h14"></path>
-                      <path d="M12 5l7 7-7 7"></path>
-                    </svg>
-                    Pujar
-                  </button>
-                </div>
-                <div class="auction-info">
-                  <span class="bid-count">{auction.bidCount} pujas</span>
-                  <span class="min-bid">Mínima: {auction.minBid.toLocaleString()}€</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <!-- My Players for Sale -->
-      <div class="sell-section">
-        <div class="section-header">
-          <h3 class="section-title">
-            <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M7 17L17 7"></path>
-              <path d="M7 7h10v10"></path>
-            </svg>
-            Mis Jugadores
-          </h3>
-          <span class="section-count">{marketData.userPlayers.length} disponibles</span>
-        </div>
-        
-        <div class="players-grid">
-          {marketData.userPlayers.map(player => (
-            <div class="player-card sellable" data-player-id={player.id}>
-              <div class="player-info">
-                <div class="player-avatar">
-                  <span class="position-badge">{player.position}</span>
-                </div>
-                <div class="player-details">
-                  <h4 class="player-name">{player.name}</h4>
-                  <span class="player-team">{player.team}</span>
-                  <div class="player-values">
-                    <span class="market-value">Valor: {player.value.toLocaleString()}€</span>
-                    <span class="sell-price">Venta: {player.sellPrice.toLocaleString()}€</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="player-actions">
-                <button class="sell-btn" data-player-id={player.id}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="16"></line>
-                    <line x1="8" y1="12" x2="16" y2="12"></line>
-                  </svg>
-                  Poner en venta
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-
-    <!-- Bid Confirmation Modal -->
-    <div id="bid-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Confirmar Puja</h3>
-          <button class="modal-close" id="close-bid-modal">
+        {marketData.activeAuctions.length === 0 ? (
+          <div class="no-auctions">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M12 8v4"></path>
+              <path d="m12 16 .01 0"></path>
             </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="bid-summary">
-            <div class="player-summary">
-              <span class="summary-label">Jugador:</span>
-              <span class="summary-value" id="bid-player-name"></span>
-            </div>
-            <div class="amount-summary">
-              <span class="summary-label">Tu puja:</span>
-              <span class="summary-value amount" id="bid-amount"></span>
-            </div>
-            <div class="budget-summary">
-              <span class="summary-label">Presupuesto restante:</span>
-              <span class="summary-value" id="remaining-budget"></span>
-            </div>
+            <p>No hay subastas activas en este momento</p>
+            <small>Las subastas se reinician cada 24 horas</small>
           </div>
-          <div id="bid-error" class="bid-error hidden"></div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-secondary" id="cancel-bid">Cancelar</button>
-          <button class="btn btn-primary" id="confirm-bid">
-            <span class="btn-text">Confirmar Puja</span>
-            <div class="btn-spinner hidden"></div>
-          </button>
-        </div>
-      </div>
-    </div>
+        ) : (
+          <div class="auctions-grid">
+            {marketData.activeAuctions.map(auction => (
+              <div class="auction-card" data-auction-id={auction.id}>
+                <div class="auction-header">
+                  <div class="player-info">
+                    <div class="player-avatar">
+                      <span class="position-badge">{auction.player.position}</span>
+                    </div>
+                    <div class="player-details">
+                      <h4 class="player-name">{auction.player.name}</h4>
+                      <span class="player-team">{auction.player.team}</span>
+                      <span class="player-value">Valor: {auction.player.value.toLocaleString()}€</span>
+                    </div>
+                  </div>
+                  <div class="auction-timer">
+                    <span class="timer-label">Termina en</span>
+                    <span class="timer-value" data-end-time={auction.endTime}>{auction.timeLeft}</span>
+                  </div>
+                </div>
 
-    <!-- Sell Player Modal -->
-    <div id="sell-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Poner Jugador en Venta</h3>
-          <button class="modal-close" id="close-sell-modal">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="sell-summary">
-            <div class="player-summary">
-              <span class="summary-label">Jugador:</span>
-              <span class="summary-value" id="sell-player-name"></span>
-            </div>
-            <div class="price-input-group">
-              <label for="sell-price">Precio de venta:</label>
-              <input type="number" id="sell-price" class="price-input" placeholder="Precio en €">
-              <span class="price-help">Precio recomendado: <span id="recommended-price"></span></span>
-            </div>
+                <div class="auction-actions">
+                  <div class="bid-input-group">
+                    <input 
+                      type="number" 
+                      class="bid-input" 
+                      min={auction.minBid}
+                      max={marketData.userBudget}
+                      placeholder={`Precio de mercado: ${auction.player.value.toLocaleString()}€`}
+                      data-auction-id={auction.id}
+                    />
+                    <button class="bid-btn" data-auction-id={auction.id} type="button">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14"></path>
+                        <path d="M12 5l7 7-7 7"></path>
+                      </svg>
+                      Pujar
+                    </button>
+                  </div>
+                  {auction.userBid && (
+                    <div class="user-bid-indicator">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12l2 2 4-4"></path>
+                        <circle cx="12" cy="12" r="10"></circle>
+                      </svg>
+                      <span class="user-bid-text">Tu puja: {auction.userBid.toLocaleString()}€</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-          <div id="sell-error" class="sell-error hidden"></div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-secondary" id="cancel-sell">Cancelar</button>
-          <button class="btn btn-primary" id="confirm-sell">
-            <span class="btn-text">Poner en Venta</span>
-            <div class="btn-spinner hidden"></div>
-          </button>
-        </div>
+        )}
       </div>
     </div>
   </div>
+
+  <!-- Hidden data for JavaScript -->
+  <script define:vars={{marketData, user_id, league_id}}>
+    window.marketData = marketData;
+    window.userId = user_id;
+    window.leagueId = league_id;
+  </script>
 </DefaultLayout>
 
 <style>
-  /* League Sub-Navigation - Same as team page */
+  /* League Sub-Navigation */
   .league-subnav {
     background: white;
     border-bottom: 1px solid #e2e8f0;
@@ -572,6 +601,36 @@ const marketData = {
     font-weight: 600;
   }
 
+  /* No Auctions State */
+  .no-auctions {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #64748b;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .no-auctions svg {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    display: block;
+    color: #9ca3af;
+  }
+
+  .no-auctions p {
+    font-size: 1.125rem;
+    font-weight: 500;
+    margin: 0 0 0.5rem 0;
+    color: #374151;
+  }
+
+  .no-auctions small {
+    font-size: 0.875rem;
+    color: #9ca3af;
+  }
+
   /* Auctions Grid */
   .auctions-grid {
     display: grid;
@@ -597,7 +656,7 @@ const marketData = {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
   }
 
   .player-info {
@@ -666,53 +725,6 @@ const marketData = {
     font-size: 0.875rem;
   }
 
-  /* Auction Status */
-  .auction-status {
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: #f8fafc;
-    border-radius: 8px;
-  }
-
-  .current-bid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .bid-label {
-    font-size: 0.75rem;
-    color: #64748b;
-    text-transform: uppercase;
-    font-weight: 600;
-  }
-
-  .bid-amount {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #1a202c;
-  }
-
-  .bid-user {
-    font-size: 0.75rem;
-    color: #64748b;
-  }
-
-  .highest-bidder {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-    color: #059669;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .highest-bidder svg {
-    width: 16px;
-    height: 16px;
-  }
-
   /* Auction Actions */
   .auction-actions {
     display: flex;
@@ -765,257 +777,33 @@ const marketData = {
 
   .auction-info {
     display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    color: #64748b;
-  }
-
-  /* Players Grid */
-  .players-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1rem;
-  }
-
-  .player-card {
-    background: white;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    padding: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-  }
-
-  .player-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .player-values {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-  }
-
-  .market-value {
-    font-size: 0.75rem;
-    color: #059669;
-    font-weight: 500;
-  }
-
-  .sell-price {
-    font-size: 0.75rem;
-    color: #f59e0b;
-    font-weight: 500;
-  }
-
-  .player-actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .sell-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: #f59e0b;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.875rem;
-  }
-
-  .sell-btn:hover {
-    background: #d97706;
-  }
-
-  .sell-btn svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  /* Modals */
-  .modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-
-  .modal-content {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    max-width: 400px;
-    width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-
-  .modal-header h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .modal-close {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem;
-    color: #64748b;
-  }
-
-  .modal-close svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  .modal-body {
-    margin-bottom: 1.5rem;
-  }
-
-  .bid-summary,
-  .sell-summary {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .player-summary,
-  .amount-summary,
-  .budget-summary {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .summary-label {
-    font-weight: 500;
-    color: #64748b;
-  }
-
-  .summary-value {
-    font-weight: 600;
-    color: #1a202c;
-  }
-
-  .summary-value.amount {
-    color: #3b82f6;
-    font-size: 1.125rem;
-  }
-
-  .price-input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .price-input-group label {
-    font-weight: 500;
-    color: #374151;
-  }
-
-  .price-input {
-    padding: 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 1rem;
-  }
-
-  .price-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  .price-help {
-    font-size: 0.75rem;
-    color: #64748b;
-  }
-
-  .bid-error,
-  .sell-error {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #dc2626;
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-top: 1rem;
-    font-size: 0.875rem;
-  }
-
-  .modal-actions {
-    display: flex;
-    gap: 0.75rem;
     justify-content: flex-end;
-  }
-
-  .btn {
-    padding: 0.625rem 1.25rem;
-    border-radius: 8px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: none;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .btn-primary {
-    background: #3b82f6;
-    color: white;
-  }
-
-  .btn-primary:hover {
-    background: #1d4ed8;
-  }
-
-  .btn-secondary {
-    background: #f1f5f9;
+    font-size: 0.75rem;
     color: #64748b;
   }
 
-  .btn-secondary:hover {
-    background: #e2e8f0;
+  /* User Bid Indicator */
+  .user-bid-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    margin-top: 0.5rem;
   }
 
-  .btn-spinner {
+  .user-bid-indicator svg {
     width: 16px;
     height: 16px;
-    border: 2px solid transparent;
-    border-top: 2px solid currentColor;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+    color: #059669;
   }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  .hidden {
-    display: none !important;
+  .user-bid-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #059669;
   }
 
   /* Responsive */
@@ -1049,10 +837,6 @@ const marketData = {
     .auctions-grid {
       grid-template-columns: 1fr;
     }
-
-    .players-grid {
-      grid-template-columns: 1fr;
-    }
   }
 
   @media (max-width: 768px) {
@@ -1076,275 +860,276 @@ const marketData = {
     .bid-input-group {
       flex-direction: column;
     }
-
-    .player-card {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 1rem;
-    }
   }
 </style>
 
 <script>
-  // Market data and functionality
-  let currentBidAuction = null;
-  let currentSellPlayer = null;
-
-  // DOM elements
-  const bidModal = document.getElementById('bid-modal');
-  const sellModal = document.getElementById('sell-modal');
-  const closeBidModal = document.getElementById('close-bid-modal');
-  const closeSellModal = document.getElementById('close-sell-modal');
-  const confirmBidBtn = document.getElementById('confirm-bid');
-  const confirmSellBtn = document.getElementById('confirm-sell');
-  const cancelBidBtn = document.getElementById('cancel-bid');
-  const cancelSellBtn = document.getElementById('cancel-sell');
-
-  // Countdown functionality
-  function updateCountdowns() {
-    const countdownElements = document.querySelectorAll('[data-countdown]');
-    countdownElements.forEach(element => {
-      const timeLeft = element.getAttribute('data-countdown');
-      // In a real app, you'd calculate the actual time remaining
-      element.textContent = timeLeft;
-    });
-
-    // Update main market countdown
-    const marketCountdown = document.getElementById('market-countdown');
-    if (marketCountdown) {
-      // In a real app, you'd calculate the actual time remaining
-      const current = marketCountdown.textContent;
-      marketCountdown.textContent = current;
-    }
-  }
-
-  // Bid functionality
-  function openBidModal(auctionId, playerName, currentBid, minBid) {
-    currentBidAuction = { id: auctionId, playerName, currentBid, minBid };
+  document.addEventListener('DOMContentLoaded', function() {
     
-    document.getElementById('bid-player-name').textContent = playerName;
-    document.getElementById('bid-amount').textContent = '';
-    document.getElementById('remaining-budget').textContent = '';
-    
-    // Clear any errors
-    const errorEl = document.getElementById('bid-error');
-    errorEl.classList.add('hidden');
-    
-    bidModal.classList.remove('hidden');
-  }
-
-  function handleCloseBidModal() {
-    bidModal.classList.add('hidden');
-    currentBidAuction = null;
-  }
-
-  async function placeBid() {
-    if (!currentBidAuction) return;
-
-    const bidInput = document.querySelector(`[data-auction-id="${currentBidAuction.id}"]`);
-    const bidAmount = parseInt(bidInput.value);
-    const userBudget = 8450; // This would come from your app state
-
-    // Validation
-    if (!bidAmount || bidAmount < currentBidAuction.minBid) {
-      showBidError(`La puja mínima es ${currentBidAuction.minBid.toLocaleString()}€`);
-      return;
-    }
-
-    if (bidAmount > userBudget) {
-      showBidError('No tienes suficiente presupuesto');
-      return;
-    }
-
-    // Show loading
-    const btnText = confirmBidBtn.querySelector('.btn-text');
-    const btnSpinner = confirmBidBtn.querySelector('.btn-spinner');
-    btnText.classList.add('hidden');
-    btnSpinner.classList.remove('hidden');
-    confirmBidBtn.disabled = true;
-
-    try {
-      // Here you would make the API call to place the bid
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    function updateCountdowns() {
+      const countdownElements = document.querySelectorAll('[data-end-time]');
+      let earliestEndTime = null;
       
-      // Update UI
-      const auctionCard = document.querySelector(`[data-auction-id="${currentBidAuction.id}"]`);
-      if (auctionCard) {
-        const bidAmountEl = auctionCard.querySelector('.bid-amount');
-        const bidUserEl = auctionCard.querySelector('.bid-user');
-        const highestBidderEl = auctionCard.querySelector('.highest-bidder');
-        
-        bidAmountEl.textContent = `${bidAmount.toLocaleString()}€`;
-        bidUserEl.textContent = 'por Ti';
-        
-        // Add highest bidder indicator
-        if (!highestBidderEl) {
-          const statusDiv = auctionCard.querySelector('.auction-status');
-          const newHighestEl = document.createElement('div');
-          newHighestEl.className = 'highest-bidder';
-          newHighestEl.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22,4 12,14.01 9,11.01"></polyline>
-            </svg>
-            Eres el mejor postor
-          `;
-          statusDiv.appendChild(newHighestEl);
+      countdownElements.forEach(function(element) {
+        try {
+          const endTimeStr = element.getAttribute('data-end-time');
+          if (!endTimeStr) return;
+          
+          const endTime = new Date(endTimeStr);
+          if (isNaN(endTime.getTime())) return;
+          
+          const now = new Date();
+          const timeLeft = endTime.getTime() - now.getTime();
+          
+          if (!earliestEndTime || endTime < earliestEndTime) {
+            earliestEndTime = endTime;
+          }
+          
+          if (timeLeft <= 0) {
+            element.textContent = '00:00:00';
+            element.style.color = '#dc2626';
+            
+            const auctionCard = element.closest('.auction-card');
+            if (auctionCard) {
+              const bidInput = auctionCard.querySelector('.bid-input');
+              const bidBtn = auctionCard.querySelector('.bid-btn');
+              
+              if (bidInput) bidInput.disabled = true;
+              if (bidBtn) {
+                bidBtn.disabled = true;
+                bidBtn.textContent = 'Finalizada';
+              }
+            }
+            return;
+          }
+          
+          const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+          const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+          
+          // Asegurar que los valores son números válidos
+          const hoursStr = (hours >= 0 ? hours : 0).toString().padStart(2, '0');
+          const minutesStr = (minutes >= 0 ? minutes : 0).toString().padStart(2, '0');
+          const secondsStr = (seconds >= 0 ? seconds : 0).toString().padStart(2, '0');
+          
+          const timeLeftFormatted = hoursStr + ':' + minutesStr + ':' + secondsStr;
+          
+          if (element && typeof timeLeftFormatted === 'string') {
+            element.textContent = timeLeftFormatted;
+          }
+          
+          if (timeLeft < 5 * 60 * 1000) {
+            element.style.color = '#dc2626';
+          } else if (timeLeft < 30 * 60 * 1000) {
+            element.style.color = '#f59e0b';
+          } else {
+            element.style.color = '#dc2626';
+          }
+        } catch (error) {
+          console.warn('Error updating countdown for element:', element, error);
+          if (element) element.textContent = '00:00:00';
+        }
+      });
+
+      const marketCountdown = document.getElementById('market-countdown');
+      if (marketCountdown && earliestEndTime) {
+        try {
+          const now = new Date();
+          const timeLeft = earliestEndTime.getTime() - now.getTime();
+          
+          if (timeLeft <= 0) {
+            marketCountdown.textContent = '00:00:00';
+            return;
+          }
+          
+          const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+          const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+          
+          const hoursStr = (hours >= 0 ? hours : 0).toString().padStart(2, '0');
+          const minutesStr = (minutes >= 0 ? minutes : 0).toString().padStart(2, '0');
+          const secondsStr = (seconds >= 0 ? seconds : 0).toString().padStart(2, '0');
+          
+          const timeLeftFormatted = hoursStr + ':' + minutesStr + ':' + secondsStr;
+          marketCountdown.textContent = timeLeftFormatted;
+        } catch (error) {
+          console.warn('Error updating market countdown:', error);
+          marketCountdown.textContent = '00:00:00';
         }
       }
-      
-      handleCloseBidModal();
-    } catch (error) {
-      showBidError('Error al realizar la puja. Inténtalo de nuevo.');
-    } finally {
-      btnText.classList.remove('hidden');
-      btnSpinner.classList.add('hidden');
-      confirmBidBtn.disabled = false;
-    }
-  }
-
-  function showBidError(message) {
-    const errorEl = document.getElementById('bid-error');
-    errorEl.textContent = message;
-    errorEl.classList.remove('hidden');
-  }
-
-  // Sell functionality
-  function openSellModal(playerId, playerName, recommendedPrice) {
-    currentSellPlayer = { id: playerId, name: playerName, recommendedPrice };
-    
-    document.getElementById('sell-player-name').textContent = playerName;
-    document.getElementById('recommended-price').textContent = `${recommendedPrice.toLocaleString()}€`;
-    document.getElementById('sell-price').value = recommendedPrice;
-    
-    // Clear any errors
-    const errorEl = document.getElementById('sell-error');
-    errorEl.classList.add('hidden');
-    
-    sellModal.classList.remove('hidden');
-  }
-
-  function handleCloseSellModal() {
-    sellModal.classList.add('hidden');
-    currentSellPlayer = null;
-  }
-
-  async function sellPlayer() {
-    if (!currentSellPlayer) return;
-
-    const sellPrice = parseInt(document.getElementById('sell-price').value);
-
-    // Validation
-    if (!sellPrice || sellPrice <= 0) {
-      showSellError('Ingresa un precio válido');
-      return;
     }
 
-    // Show loading
-    const btnText = confirmSellBtn.querySelector('.btn-text');
-    const btnSpinner = confirmSellBtn.querySelector('.btn-spinner');
-    btnText.classList.add('hidden');
-    btnSpinner.classList.remove('hidden');
-    confirmSellBtn.disabled = true;
-
-    try {
-      // Here you would make the API call to put player on sale
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-      
-      // Remove player from the sell list (they're now on auction)
-      const playerCard = document.querySelector(`[data-player-id="${currentSellPlayer.id}"]`);
-      if (playerCard) {
-        playerCard.remove();
+    function showBidError(message) {
+      const existingError = document.querySelector('.bid-error-inline');
+      if (existingError) {
+        existingError.remove();
       }
       
-      handleCloseSellModal();
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'bid-error-inline';
+      errorDiv.textContent = message;
+      errorDiv.style.cssText = 'background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.875rem; position: fixed; top: 20px; right: 20px; z-index: 1001; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); font-weight: 500;';
       
-      // You could also add the player to the auctions list here
-      // or show a success message
-    } catch (error) {
-      showSellError('Error al poner en venta. Inténtalo de nuevo.');
-    } finally {
-      btnText.classList.remove('hidden');
-      btnSpinner.classList.add('hidden');
-      confirmSellBtn.disabled = false;
+      document.body.appendChild(errorDiv);
+      
+      setTimeout(function() {
+        if (errorDiv.parentNode) {
+          errorDiv.style.opacity = '0';
+          errorDiv.style.transition = 'opacity 0.3s ease';
+          setTimeout(function() {
+            if (errorDiv.parentNode) {
+              errorDiv.parentNode.removeChild(errorDiv);
+            }
+          }, 300);
+        }
+      }, 4000);
     }
-  }
 
-  function showSellError(message) {
-    const errorEl = document.getElementById('sell-error');
-    errorEl.textContent = message;
-    errorEl.classList.remove('hidden');
-  }
+    function showSuccessMessage(message) {
+      const successDiv = document.createElement('div');
+      successDiv.className = 'success-message';
+      successDiv.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: #059669;"><path d="M9 12l2 2 4-4"></path><circle cx="12" cy="12" r="10"></circle></svg><span>' + message + '</span>';
+      
+      successDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #059669; padding: 0.75rem 1rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); z-index: 1001; display: flex; align-items: center; gap: 0.5rem; font-weight: 500;';
+      
+      document.body.appendChild(successDiv);
+      
+      setTimeout(function() {
+        successDiv.style.opacity = '0';
+        successDiv.style.transition = 'opacity 0.3s ease';
+        setTimeout(function() {
+          if (successDiv.parentNode) {
+            successDiv.parentNode.removeChild(successDiv);
+          }
+        }, 300);
+      }, 3000);
+    }
 
-  // Event listeners
-  document.addEventListener('DOMContentLoaded', function() {
-    // Update countdowns every second
     setInterval(updateCountdowns, 1000);
+    updateCountdowns();
 
-    // Bid button clicks
-    document.querySelectorAll('.bid-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+    document.querySelectorAll('.bid-btn').forEach(function(btn) {
+      btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const auctionId = btn.getAttribute('data-auction-id');
         const auctionCard = btn.closest('.auction-card');
         const playerName = auctionCard.querySelector('.player-name').textContent;
-        const currentBid = parseInt(auctionCard.querySelector('.bid-amount').textContent.replace(/[€,]/g, ''));
-        const minBidEl = auctionCard.querySelector('.min-bid');
-        const minBid = parseInt(minBidEl.textContent.replace(/[€,]/g, ''));
+        const bidInput = auctionCard.querySelector('.bid-input');
+        const bidAmount = parseInt(bidInput.value);
         
-        openBidModal(auctionId, playerName, currentBid, minBid);
-      });
-    });
-
-    // Sell button clicks
-    document.querySelectorAll('.sell-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const playerId = btn.getAttribute('data-player-id');
-        const playerCard = btn.closest('.player-card');
-        const playerName = playerCard.querySelector('.player-name').textContent;
-        const sellPriceText = playerCard.querySelector('.sell-price').textContent;
-        const recommendedPrice = parseInt(sellPriceText.replace(/[€,]/g, ''));
+        // Verificar si el usuario ya tiene una puja
+        const existingUserBid = auctionCard.querySelector('.user-bid-indicator');
+        const hasExistingBid = existingUserBid !== null;
         
-        openSellModal(playerId, playerName, recommendedPrice);
-      });
-    });
+        // Obtener el valor de mercado del jugador desde el placeholder
+        const placeholder = bidInput.placeholder;
+        const marketValueMatch = placeholder.match(/(\d{1,3}(?:,\d{3})*)/);
+        const marketValue = marketValueMatch ? parseInt(marketValueMatch[1].replace(/,/g, '')) : 0;
+        
+        if (!bidAmount || isNaN(bidAmount)) {
+          showBidError('Introduce un monto válido');
+          return;
+        }
+        
+        // Si el usuario NO tiene puja previa, debe cumplir con la puja mínima del servidor
+        // Si SÍ tiene puja previa, puede pujar cualquier cantidad (incluso menor)
+        if (!hasExistingBid && bidAmount < marketValue * 0.5) {
+          showBidError('La puja debe ser al menos el 50% del valor de mercado');
+          return;
+        }
+        
+        if (bidAmount > window.marketData.userBudget) {
+          showBidError('No tienes suficiente presupuesto');
+          return;
+        }
+        
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<div style="width: 16px; height: 16px; border: 2px solid transparent; border-top: 2px solid currentColor; border-radius: 50%; animation: spin 1s linear infinite;"></div> Pujando...';
+        btn.disabled = true;
+        
+        try {
+          const response = await fetch('/api/placeBid', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              auctionId: auctionId,
+              bidAmount: bidAmount,
+              userId: window.userId,
+              leagueId: window.leagueId
+            })
+          });
 
-    // Update bid amount and remaining budget when typing
-    document.querySelectorAll('.bid-input').forEach(input => {
-      input.addEventListener('input', () => {
-        if (currentBidAuction) {
-          const bidAmount = parseInt(input.value) || 0;
-          const userBudget = 8450;
-          const remaining = userBudget - bidAmount;
-          
-          document.getElementById('bid-amount').textContent = `${bidAmount.toLocaleString()}€`;
-          document.getElementById('remaining-budget').textContent = `${remaining.toLocaleString()}€`;
+          const result = await response.json();
+
+          if (response.ok && result.success) {
+            // En subasta ciega, min_bid nunca cambia, así que no lo actualizamos
+            bidInput.value = '';
+            
+            // Actualizar o crear indicador de puja del usuario
+            const actionsDiv = auctionCard.querySelector('.auction-actions');
+            const existingIndicator = actionsDiv.querySelector('.user-bid-indicator');
+            if (existingIndicator) {
+              existingIndicator.remove();
+            }
+            
+            // Crear el indicador EXACTAMENTE como se muestra en la carga inicial
+            const userBidIndicator = document.createElement('div');
+            userBidIndicator.className = 'user-bid-indicator';
+            
+            // Aplicar los estilos CSS directamente para asegurar consistencia
+            userBidIndicator.style.cssText = `
+              display: flex;
+              align-items: center;
+              gap: 0.5rem;
+              padding: 0.5rem 0.75rem;
+              background: #f0fdf4;
+              border: 1px solid #bbf7d0;
+              border-radius: 6px;
+              margin-top: 0.5rem;
+            `;
+            
+            userBidIndicator.innerHTML = `
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px; color: #059669; flex-shrink: 0;">
+                <path d="M9 12l2 2 4-4"></path>
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+              <span class="user-bid-text" style="font-size: 0.875rem; font-weight: 500; color: #059669;">Tu puja: ${result.userBid.toLocaleString()}€</span>
+            `;
+            
+            actionsDiv.appendChild(userBidIndicator);
+            
+            // Mostrar mensaje de éxito apropiado
+            let successMessage;
+            if (result.previousBid !== null && result.previousBid !== undefined) {
+              if (result.userBid > result.previousBid) {
+                successMessage = `Puja aumentada: ${result.previousBid.toLocaleString()}€ → ${result.userBid.toLocaleString()}€`;
+              } else if (result.userBid < result.previousBid) {
+                successMessage = `Puja reducida: ${result.previousBid.toLocaleString()}€ → ${result.userBid.toLocaleString()}€`;
+              } else {
+                successMessage = `Puja confirmada: ${result.userBid.toLocaleString()}€`;
+              }
+            } else {
+              successMessage = `Nueva puja registrada: ${result.userBid.toLocaleString()}€`;
+            }
+            
+            showSuccessMessage(successMessage);
+            
+          } else {
+            console.error('Error en respuesta:', result);
+            showBidError(result.message || 'Error al realizar la puja');
+          }
+        } catch (error) {
+          console.error('Error placing bid:', error);
+          showBidError('Error al realizar la puja. Inténtalo de nuevo.');
+        } finally {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
         }
       });
-    });
-
-    // Modal event listeners
-    confirmBidBtn.addEventListener('click', placeBid);
-    confirmSellBtn.addEventListener('click', sellPlayer);
-    cancelBidBtn.addEventListener('click', handleCloseBidModal);
-    cancelSellBtn.addEventListener('click', handleCloseSellModal);
-    closeBidModal.addEventListener('click', handleCloseBidModal);
-    closeSellModal.addEventListener('click', handleCloseSellModal);
-
-    // Close modals when clicking outside
-    bidModal.addEventListener('click', (e) => {
-      if (e.target === bidModal) handleCloseBidModal();
-    });
-
-    sellModal.addEventListener('click', (e) => {
-      if (e.target === sellModal) handleCloseSellModal();
-    });
-
-    // Close modals with Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        if (!bidModal.classList.contains('hidden')) handleCloseBidModal();
-        if (!sellModal.classList.contains('hidden')) handleCloseSellModal();
-      }
     });
   });
 </script>

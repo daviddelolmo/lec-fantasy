@@ -6,30 +6,55 @@ import { supabase } from '../lib/supabase';
 const { id } = Astro.params;
 
 // Datos temporales - luego los conectaremos a Supabase
-const teamData = {
-  totalPlayers: 8,
-  totalValue: 84000,
-  budget: 7340,
-  starters: [
-    { id: 1, name: "Myrwn", position: "TOP", team: "KOI", value: 9500, powerUp: null },
-    { id: 2, name: "Elyoya", position: "JUNGLE", team: "KOI", value: 12500, powerUp: "CARRY" },
-    { id: 3, name: "Jojopyun", position: "MID", team: "KOI", value: 10000, powerUp: null },
-    { id: 4, name: "Supa", position: "ADC", team: "KOI", value: 10500, powerUp: null },
-    { id: 5, name: "Álvaro", position: "SUPPORT", team: "KOI", value: 11000, powerUp: null }
-  ],
-  bench: [
-    { id: 6, name: "Canna", position: "TOP", team: "KC", value: 10000 },
-    { id: 7, name: "Razork", position: "JUNGLE", team: "FNC", value: 8500 },
-    { id: 8, name: "Caps", position: "MID", team: "G2", value: 12000 },
-  ]
-};
+const user_id = 'e01005c8-1f15-4ca7-a1e9-7d423b84cc77';
+const league_id = '586b1a73-3247-48ff-a8fa-48d17139fdfa';
 
-const powerUps = {
-  TOP: ["TANK", "CARRY"],
-  JUNGLE: ["CARRY", "SUPPORT"],
-  MID: ["CARRY", "STRATEGIC"], 
-  ADC: ["CARRY", "CLUTCH"],
-  SUPPORT: ["SUPPORT", "STRATEGIC"]
+// Obtener el equipo del usuario
+const { data: userTeamRaw, error } = await supabase
+  .from('user_teams')
+  .select('player_id, is_starter, lec_players(id, name, position, team, market_value)')
+  .eq('user_id', user_id)
+  .eq('league_id', league_id);
+
+if (error) {
+  console.error('Error al cargar el equipo:', error.message);
+  throw new Error(error.message);
+}
+
+// Mapear a estructura de teamData
+const starters = [];
+const bench = [];
+let totalValue = 0;
+
+for (const entry of userTeamRaw) {
+  const player = entry.lec_players;
+
+  if (!player) continue;
+
+  const playerData = {
+    id: player.id,
+    name: player.name,
+    position: player.position,
+    team: player.team,
+    value: player.market_value,
+    powerUp: null
+  };
+
+  totalValue += player.value;
+
+  if (entry.is_starter) {
+    starters.push(playerData);
+  } else {
+    bench.push(playerData);
+  }
+}
+
+const teamData = {
+  totalPlayers: starters.length + bench.length,
+  totalValue,
+  budget: 100000 - totalValue, // Ajusta esta lógica según reglas
+  starters,
+  bench
 };
 ---
 
@@ -158,6 +183,56 @@ const powerUps = {
       </div>
     </div>
 
+    <!-- Swap Players Modal -->
+    <div id="swap-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Intercambiar Jugador</h3>
+          <button class="modal-close" id="close-swap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="swap-header">
+            <div class="current-starter">
+              <h4>Jugador titular</h4>
+              <div class="player-info-modal" id="starter-info">
+                <!-- Current starter info will be populated -->
+              </div>
+            </div>
+            <div class="swap-arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M7 16l4-4-4-4M17 20l4-4-4-4"></path>
+              </svg>
+            </div>
+          </div>
+          
+          <div class="bench-options" id="bench-options">
+            <!-- Available bench players will be populated -->
+          </div>
+          
+          <div class="no-bench-message hidden" id="no-bench-message">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 6v6l4 2"></path>
+              </svg>
+              <p>No tienes jugadores suplentes en la posición <strong id="position-name"></strong></p>
+              <small>Puedes fichar jugadores en el mercado para tener más opciones</small>
+            </div>
+          </div>
+
+          <div class="swap-actions">
+            <button class="btn btn-secondary" id="cancel-swap">Cancelar</button>
+            <button class="btn btn-primary" id="confirm-swap" disabled>Intercambiar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="team-content">
       <!-- Left Panel - Squad List -->
       <div class="squad-panel">
@@ -177,7 +252,7 @@ const powerUps = {
           <h3 class="section-title">Roster titular</h3>
           <div class="players-list">
             {teamData.starters.map(player => (
-              <div class="player-card starter" data-player-id={player.id}>
+              <div class="player-card starter" data-player-id={player.id} data-position={player.position}>
                 <div class="player-info">
                   <div class="player-avatar">
                     <span class="position-badge">{player.position}</span>
@@ -193,6 +268,11 @@ const powerUps = {
                     <span class="power-up-badge">{player.powerUp}</span>
                   )}
                 </div>
+                <div class="swap-indicator">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M7 16l4-4-4-4M17 20l4-4-4-4"></path>
+                  </svg>
+                </div>
               </div>
             ))}
           </div>
@@ -203,7 +283,7 @@ const powerUps = {
           <h3 class="section-title">Suplentes</h3>
           <div class="players-list">
             {teamData.bench.map(player => (
-              <div class="player-card bench" data-player-id={player.id}>
+              <div class="player-card bench" data-player-id={player.id} data-position={player.position}>
                 <div class="player-info">
                   <div class="player-avatar">
                     <span class="position-badge">{player.position}</span>
@@ -232,7 +312,6 @@ const powerUps = {
         </div>
         
         <div class="rift-container">
-          <!-- Placeholder for Summoner's Rift image -->
           <div class="rift-background">
             <div class="rift-placeholder">
               <svg viewBox="0 0 400 300" fill="none">
@@ -253,7 +332,7 @@ const powerUps = {
                 data-position={player.position}
                 data-player-id={player.id}
               >
-                <div class="position-player">
+                <div class="position-player" data-player-id={player.id} data-position={player.position}>
                   <div class="player-portrait">
                     <span class="portrait-name">{player.name}</span>
                     <span class="portrait-team">{player.team}</span>
@@ -266,6 +345,27 @@ const powerUps = {
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                     </svg>
                   </button>
+                  <div class="swap-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M7 16l4-4-4-4M17 20l4-4-4-4"></path>
+                    </svg>
+                  </div>
+                </div>
+                
+                <!-- Dropdown de suplentes -->
+                <div class="substitutes-dropdown hidden" data-position={player.position}>
+                  <div class="dropdown-header">
+                    <span class="dropdown-title">Suplentes - {player.position}</span>
+                    <button class="dropdown-close">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="dropdown-content">
+                    <!-- Los suplentes se cargarán dinámicamente con JavaScript -->
+                  </div>
                 </div>
               </div>
             ))}
@@ -274,6 +374,12 @@ const powerUps = {
       </div>
     </div>
   </div>
+
+  <!-- Hidden data for JavaScript -->
+  <script define:vars={{teamData}}>
+    window.teamData = teamData;
+    console.log("Team data asignada a window:", window.teamData);
+  </script>
 </DefaultLayout>
 
 <style>
@@ -518,14 +624,21 @@ const powerUps = {
     border-radius: 8px;
     transition: all 0.2s ease;
     cursor: pointer;
+    position: relative;
   }
 
   .player-card:hover {
     background: #f8fafc;
+    transform: translateY(-1px);
   }
 
   .player-card.starter {
     border-left: 3px solid #10b981;
+  }
+
+  .player-card.starter:hover {
+    background: #f0fdf4;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
   }
 
   .player-card.bench {
@@ -536,6 +649,7 @@ const powerUps = {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex: 1;
   }
 
   .player-avatar {
@@ -592,6 +706,22 @@ const powerUps = {
     font-size: 0.625rem;
     font-weight: 600;
     text-transform: uppercase;
+  }
+
+  .swap-indicator {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    margin-left: 0.5rem;
+    color: #3b82f6;
+  }
+
+  .player-card.starter:hover .swap-indicator {
+    opacity: 1;
+  }
+
+  .swap-indicator svg {
+    width: 16px;
+    height: 16px;
   }
 
   /* Formation Panel */
@@ -706,11 +836,18 @@ const powerUps = {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    cursor: pointer;
   }
 
   .position-player:hover {
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: #3b82f6;
+  }
+
+  .position-player.active {
+    border-color: #3b82f6;
+    background: #f0f9ff;
   }
 
   .player-portrait {
@@ -767,6 +904,7 @@ const powerUps = {
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
+    z-index: 3;
   }
 
   .powerup-btn:hover {
@@ -778,6 +916,201 @@ const powerUps = {
     width: 12px;
     height: 12px;
     color: white;
+  }
+
+  .swap-icon {
+    position: absolute;
+    bottom: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    background: #10b981;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 3;
+  }
+
+  .position-player:hover .swap-icon {
+    opacity: 1;
+  }
+
+  .position-player.active .swap-icon {
+    opacity: 1;
+    background: #059669;
+  }
+
+  .swap-icon svg {
+    width: 12px;
+    height: 12px;
+    color: white;
+  }
+
+  /* Substitutes Dropdown */
+  .substitutes-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 0.5rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 200px;
+    max-width: 250px;
+    z-index: 1000;
+    overflow: hidden;
+  }
+
+  .dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .dropdown-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .dropdown-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .dropdown-close:hover {
+    background: #e2e8f0;
+    color: #374151;
+  }
+
+  .dropdown-close svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .dropdown-content {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .substitute-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .substitute-item:last-child {
+    border-bottom: none;
+  }
+
+  .substitute-item:hover {
+    background: #f0f9ff;
+  }
+
+  .substitute-item.selected {
+    background: #eff6ff;
+    border-left: 3px solid #3b82f6;
+  }
+
+  .substitute-item .player-avatar {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .substitute-item .position-badge {
+    font-size: 0.625rem;
+  }
+
+  .substitute-item .player-details {
+    flex: 1;
+    text-align: left;
+  }
+
+  .substitute-item .player-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1a202c;
+    display: block;
+  }
+
+  .substitute-item .player-team {
+    font-size: 0.75rem;
+    color: #64748b;
+    display: block;
+  }
+
+  .substitute-item .player-value {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #059669;
+  }
+
+  .no-substitutes {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    color: #64748b;
+  }
+
+  .no-substitutes p {
+    font-size: 0.875rem;
+    margin: 0;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  /* Position-specific dropdown positioning */
+  .position-slot.top .substitutes-dropdown {
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .position-slot.jungle .substitutes-dropdown {
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .position-slot.mid .substitutes-dropdown {
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .position-slot.adc .substitutes-dropdown {
+    top: 100%;
+    right: 0;
+    left: auto;
+    transform: none;
+  }
+
+  .position-slot.support .substitutes-dropdown {
+    top: 100%;
+    right: 0;
+    left: auto;
+    transform: none;
   }
 
   /* Modal */
@@ -798,7 +1131,7 @@ const powerUps = {
     background: white;
     border-radius: 12px;
     padding: 1.5rem;
-    max-width: 400px;
+    max-width: 500px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
@@ -833,6 +1166,123 @@ const powerUps = {
   .modal-body p {
     margin-bottom: 1rem;
     color: #374151;
+  }
+
+  /* Swap Modal Specific Styles */
+  .swap-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+  }
+
+  .current-starter {
+    flex: 1;
+  }
+
+  .current-starter h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #64748b;
+    margin: 0 0 0.5rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .player-info-modal {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .player-info-modal .player-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .player-info-modal .position-badge {
+    font-size: 0.625rem;
+  }
+
+  .swap-arrow {
+    color: #3b82f6;
+    padding: 0.5rem;
+  }
+
+  .swap-arrow svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .bench-options {
+    margin-bottom: 1.5rem;
+  }
+
+  .bench-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-bottom: 0.5rem;
+  }
+
+  .bench-option:hover {
+    border-color: #3b82f6;
+    background: #f0f9ff;
+  }
+
+  .bench-option.selected {
+    border-color: #3b82f6;
+    background: #eff6ff;
+  }
+
+  .bench-option:last-child {
+    margin-bottom: 0;
+  }
+
+  .no-bench-message {
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .empty-state svg {
+    width: 48px;
+    height: 48px;
+    color: #9ca3af;
+  }
+
+  .empty-state p {
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+  }
+
+  .empty-state small {
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+
+  .swap-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
   }
 
   .powerup-options {
@@ -885,6 +1335,12 @@ const powerUps = {
     cursor: pointer;
     transition: all 0.2s ease;
     border: none;
+    font-size: 0.875rem;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .btn-primary {
@@ -892,7 +1348,7 @@ const powerUps = {
     color: white;
   }
 
-  .btn-primary:hover {
+  .btn-primary:hover:not(:disabled) {
     background: #1d4ed8;
   }
 
@@ -966,146 +1422,508 @@ const powerUps = {
     .portrait-team {
       font-size: 0.625rem;
     }
+
+    .player-card.selected {
+      outline: 3px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .modal-content {
+      margin: 1rem;
+      max-width: none;
+    }
+
+    .swap-header {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .swap-arrow {
+      transform: rotate(90deg);
+    }
+
+    /* Mobile dropdown adjustments */
+    .substitutes-dropdown {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      min-width: 280px;
+      max-width: 90vw;
+      max-height: 60vh;
+      z-index: 1001;
+    }
+
+    .position-slot.top .substitutes-dropdown,
+    .position-slot.jungle .substitutes-dropdown,
+    .position-slot.mid .substitutes-dropdown,
+    .position-slot.adc .substitutes-dropdown,
+    .position-slot.support .substitutes-dropdown {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      right: auto;
+      transform: translate(-50%, -50%);
+    }
+
+    .dropdown-content {
+      max-height: 40vh;
+    }
   }
 </style>
 
 <script>
-  // Power-up data
-  const powerUps = {
-    TOP: [
-      { id: 'TANK', name: 'TANK', description: '+25% puntos por asistencias y objetivos' },
-      { id: 'CARRY', name: 'CARRY', description: '+30% puntos por kills y damage' }
-    ],
-    JUNGLE: [
-      { id: 'CARRY', name: 'CARRY', description: '+30% puntos por kills y damage' },
-      { id: 'SUPPORT', name: 'SUPPORT', description: '+20% puntos por asistencias y vision' }
-    ],
-    MID: [
-      { id: 'CARRY', name: 'CARRY', description: '+30% puntos por kills y damage' },
-      { id: 'STRATEGIC', name: 'STRATEGIC', description: '+25% puntos por objectives y roams' }
-    ],
-    ADC: [
-      { id: 'CARRY', name: 'CARRY', description: '+30% puntos por kills y damage' },
-      { id: 'CLUTCH', name: 'CLUTCH', description: '+50% puntos en teamfights decisivos' }
-    ],
-    SUPPORT: [
-      { id: 'SUPPORT', name: 'SUPPORT', description: '+20% puntos por asistencias y vision' },
-      { id: 'STRATEGIC', name: 'STRATEGIC', description: '+25% puntos por objectives y roams' }
-    ]
-  };
+  let selectedStarterId = null;
+  let selectedBenchId = null;
+  let teamData = null;
 
-  // Modal elements
-  const modal = document.getElementById('powerup-modal');
-  const closeModal = document.getElementById('close-powerup');
-  const playerNameEl = document.getElementById('powerup-player-name');
-  const optionsContainer = document.getElementById('powerup-options');
-  
-  let currentPlayer = null;
-  let selectedPowerUp = null;
-
-  // Open power-up modal
-  function openPowerUpModal(playerId, playerName, position) {
-    currentPlayer = { id: playerId, name: playerName, position };
-    playerNameEl.textContent = playerName;
+  document.addEventListener("DOMContentLoaded", () => {
+    console.log("DOM cargado, iniciando script...");
     
-    // Clear and populate power-up options
-    optionsContainer.innerHTML = '';
-    const availablePowerUps = powerUps[position] || [];
+    const leagueId = "586b1a73-3247-48ff-a8fa-48d17139fdfa";
+    const userId = "e01005c8-1f15-4ca7-a1e9-7d423b84cc77";
     
-    availablePowerUps.forEach(powerUp => {
-      const option = document.createElement('div');
-      option.className = 'powerup-option';
-      option.dataset.powerupId = powerUp.id;
-      option.innerHTML = `
-        <span class="powerup-name">${powerUp.name}</span>
-        <span class="powerup-description">${powerUp.description}</span>
-      `;
-      
-      option.addEventListener('click', () => {
-        document.querySelectorAll('.powerup-option').forEach(opt => 
-          opt.classList.remove('selected')
-        );
-        option.classList.add('selected');
-        selectedPowerUp = powerUp;
-      });
-      
-      optionsContainer.appendChild(option);
-    });
-
-    // Add action buttons
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'powerup-actions';
-    actionsDiv.innerHTML = `
-      <button class="btn btn-secondary" onclick="closePowerUpModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="applyPowerUp()">Aplicar</button>
-    `;
-    optionsContainer.appendChild(actionsDiv);
-    
-    modal.classList.remove('hidden');
-  }
-
-  // Close modal
-  function closePowerUpModal() {
-    modal.classList.add('hidden');
-    currentPlayer = null;
-    selectedPowerUp = null;
-  }
-
-  // Apply power-up
-  function applyPowerUp() {
-    if (!selectedPowerUp || !currentPlayer) return;
-    
-    // Update UI
-    const playerSlot = document.querySelector(`[data-player-id="${currentPlayer.id}"]`);
-    if (playerSlot) {
-      // Remove existing power-up
-      const existingPowerUp = playerSlot.querySelector('.position-powerup');
-      if (existingPowerUp) {
-        existingPowerUp.remove();
-      }
-      
-      // Add new power-up
-      const powerUpEl = document.createElement('div');
-      powerUpEl.className = 'position-powerup';
-      powerUpEl.textContent = selectedPowerUp.name;
-      
-      const portrait = playerSlot.querySelector('.player-portrait');
-      portrait.parentNode.insertBefore(powerUpEl, portrait.nextSibling);
+    // Get team data from window object (set by Astro)
+    if (window.teamData) {
+      teamData = window.teamData;
+      console.log("Team data cargada desde window:", teamData);
+    } else {
+      console.error("No se encontró window.teamData!");
+      // Backup: extraer datos del DOM
+      teamData = extractTeamDataFromDOM();
+      console.log("Team data extraída del DOM como backup:", teamData);
     }
-    
-    // Here you would also update the data in your backend/state
-    console.log(`Applied ${selectedPowerUp.name} to ${currentPlayer.name}`);
-    
-    closePowerUpModal();
-  }
 
-  // Event listeners
-  document.addEventListener('DOMContentLoaded', () => {
-    // Power-up button clicks
-    document.querySelectorAll('.powerup-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const playerId = btn.dataset.playerId;
-        const playerSlot = btn.closest('.position-slot');
-        const position = playerSlot.dataset.position;
-        const playerName = playerSlot.querySelector('.portrait-name').textContent;
-        
-        openPowerUpModal(playerId, playerName, position);
-      });
-    });
+    // Test: verificar que los elementos existen
+    const positionPlayers = document.querySelectorAll(".position-player");
+    const dropdowns = document.querySelectorAll(".substitutes-dropdown");
+    console.log("Position players encontrados:", positionPlayers.length);
+    console.log("Dropdowns encontrados:", dropdowns.length);
+
+    // Modal elements
+    const swapModal = document.getElementById('swap-modal');
+    const closeSwapBtn = document.getElementById('close-swap');
+    const cancelSwapBtn = document.getElementById('cancel-swap');
+    const confirmSwapBtn = document.getElementById('confirm-swap');
+    const starterInfo = document.getElementById('starter-info');
+    const benchOptions = document.getElementById('bench-options');
+    const noBenchMessage = document.getElementById('no-bench-message');
+    const positionName = document.getElementById('position-name');
+
+    // Power-up modal elements (existing)
+    const powerupModal = document.getElementById('powerup-modal');
+    const closePowerupBtn = document.getElementById('close-powerup');
+
+    // Close modals
+    closeSwapBtn?.addEventListener('click', closeSwapModal);
+    cancelSwapBtn?.addEventListener('click', closeSwapModal);
+    closePowerupBtn?.addEventListener('click', closePowerupModal);
 
     // Close modal when clicking outside
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closePowerUpModal();
+    swapModal?.addEventListener('click', (e) => {
+      if (e.target === swapModal) closeSwapModal();
+    });
+
+    powerupModal?.addEventListener('click', (e) => {
+      if (e.target === powerupModal) closePowerupModal();
+    });
+
+    // Handle formation player clicks (new functionality)
+    document.querySelectorAll(".position-player").forEach(player => {
+      console.log("Encontrado position-player:", player);
+      player.addEventListener("click", (e) => {
+        console.log("Click en position-player detectado!");
+        e.stopPropagation();
+        
+        // Prevent triggering when clicking power-up button
+        if (e.target.closest('.powerup-btn')) {
+          console.log("Click en powerup-btn, ignorando...");
+          return;
+        }
+        
+        const playerId = player.dataset.playerId;
+        const position = player.dataset.position;
+        const positionSlot = player.closest('.position-slot');
+        const dropdown = positionSlot.querySelector('.substitutes-dropdown');
+        
+        console.log("Datos del click:", { playerId, position, positionSlot, dropdown });
+        
+        // Close all other dropdowns
+        document.querySelectorAll('.substitutes-dropdown').forEach(dd => {
+          if (dd !== dropdown) {
+            dd.classList.add('hidden');
+          }
+        });
+        
+        document.querySelectorAll('.position-player').forEach(p => {
+          if (p !== player) {
+            p.classList.remove('active');
+          }
+        });
+        
+        // Toggle current dropdown
+        if (dropdown.classList.contains('hidden')) {
+          console.log("Mostrando dropdown...");
+          showSubstitutesDropdown(dropdown, position, playerId);
+          player.classList.add('active');
+        } else {
+          console.log("Ocultando dropdown...");
+          dropdown.classList.add('hidden');
+          player.classList.remove('active');
+        }
+      });
+    });
+
+    // Handle clicks outside dropdowns to close them
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.position-slot')) {
+        document.querySelectorAll('.substitutes-dropdown').forEach(dropdown => {
+          dropdown.classList.add('hidden');
+        });
+        document.querySelectorAll('.position-player').forEach(player => {
+          player.classList.remove('active');
+        });
       }
     });
 
-    // Close button
-    closeModal.addEventListener('click', closePowerUpModal);
-  });
+    // Handle dropdown close buttons
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.dropdown-close')) {
+        const dropdown = e.target.closest('.substitutes-dropdown');
+        const player = dropdown.closest('.position-slot').querySelector('.position-player');
+        dropdown.classList.add('hidden');
+        player.classList.remove('active');
+      }
+    });
 
-  // Make functions global for onclick handlers
-  window.closePowerUpModal = closePowerUpModal;
-  window.applyPowerUp = applyPowerUp;
+    function showSubstitutesDropdown(dropdown, position, currentStarterId) {
+      console.log("showSubstitutesDropdown llamada con:", { dropdown, position, currentStarterId, teamData });
+      
+      if (!teamData) {
+        console.log("No hay teamData!");
+        return;
+      }
+      
+      // Find substitutes for this position
+      const substitutes = teamData.bench.filter(p => p.position === position);
+      console.log("Suplentes encontrados:", substitutes);
+      
+      const dropdownContent = dropdown.querySelector('.dropdown-content');
+      console.log("Dropdown content element:", dropdownContent);
+      
+      if (substitutes.length === 0) {
+        console.log("No hay suplentes, mostrando mensaje...");
+        // No substitutes available
+        dropdownContent.innerHTML = `
+          <div class="no-substitutes">
+            <p>No hay jugadores suplentes para esta posición</p>
+          </div>
+        `;
+      } else {
+        console.log("Hay suplentes, mostrando lista...");
+        // Show substitutes
+        dropdownContent.innerHTML = substitutes.map(substitute => `
+          <div class="substitute-item" data-player-id="${substitute.id}" data-starter-id="${currentStarterId}">
+            <div class="player-avatar">
+              <span class="position-badge">${substitute.position}</span>
+            </div>
+            <div class="player-details">
+              <span class="player-name">${substitute.name}</span>
+              <span class="player-team">${substitute.team}</span>
+            </div>
+            <div class="player-value">${substitute.value.toLocaleString()}€</div>
+          </div>
+        `).join('');
+        
+        // Add click handlers to substitute items
+        dropdownContent.querySelectorAll('.substitute-item').forEach(item => {
+          item.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            
+            const substituteId = item.dataset.playerId;
+            const starterId = item.dataset.starterId;
+            
+            console.log("Intentando intercambio:", {
+              starterId,
+              substituteId,
+              leagueId,
+              userId
+            });
+            
+            // Visual feedback
+            item.classList.add('selected');
+            
+            try {
+              const requestBody = {
+                starterId: starterId,
+                benchId: substituteId,
+                leagueId,
+                userId
+              };
+              
+              console.log("Enviando request:", requestBody);
+              
+              const res = await fetch("/api/swapStarter", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(requestBody)
+              });
+
+              console.log("Response status:", res.status);
+              console.log("Response ok:", res.ok);
+              
+              if (res.ok) {
+                const successData = await res.json();
+                console.log("Intercambio exitoso:", successData);
+                console.log("Response completa:", successData);
+                
+                // Verificar si realmente se actualizó
+                if (successData.success === false) {
+                  console.error("El intercambio falló en el backend:", successData);
+                  alert("Error: " + (successData.message || "El intercambio falló"));
+                  item.classList.remove('selected');
+                  return;
+                }
+                
+                // Disable further clicks
+                item.style.pointerEvents = 'none';
+                
+                // Show success feedback
+                item.style.background = '#dcfce7';
+                item.innerHTML = `
+                  <div class="player-avatar">
+                    <span class="position-badge">✓</span>
+                  </div>
+                  <div class="player-details">
+                    <span class="player-name">Intercambio exitoso</span>
+                    <span class="player-team">Recargando...</span>
+                  </div>
+                `;
+                
+                // Close dropdown
+                const dropdown = item.closest('.substitutes-dropdown');
+                const player = dropdown.closest('.position-slot').querySelector('.position-player');
+                
+                // Wait a bit more before reload to ensure backend is updated
+                setTimeout(() => {
+                  console.log("Iniciando recarga...");
+                  console.log("Datos antes de recarga:", {
+                    currentUserId: userId,
+                    currentLeagueId: leagueId,
+                    starterId,
+                    substituteId
+                  });
+                  window.location.reload();
+                }, 1000);
+              } else {
+                const errorData = await res.json();
+                console.error("Error del servidor:", errorData);
+                alert("Error: " + (errorData.message || "Error desconocido"));
+                item.classList.remove('selected');
+              }
+            } catch (err) {
+              console.error("Error en la request:", err);
+              alert("Error al hacer el intercambio: " + err.message);
+              item.classList.remove('selected');
+            }
+          });
+          
+          // Add hover effect
+          item.addEventListener('mouseenter', () => {
+            item.style.background = '#f0f9ff';
+          });
+          
+          item.addEventListener('mouseleave', () => {
+            if (!item.classList.contains('selected')) {
+              item.style.background = '';
+            }
+          });
+        });
+      }
+      
+      // Always show the dropdown, regardless of whether there are substitutes or not
+      console.log("Mostrando dropdown, clases antes:", dropdown.classList.toString());
+      dropdown.classList.remove('hidden');
+      console.log("Mostrando dropdown, clases después:", dropdown.classList.toString());
+    }
+
+    // Handle power-up buttons
+    document.querySelectorAll(".powerup-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // Existing power-up functionality
+        showPowerupModal(btn.dataset.playerId);
+      });
+    });
+
+    // Confirm swap button
+    confirmSwapBtn?.addEventListener('click', async () => {
+      if (!selectedStarterId || !selectedBenchId) return;
+      
+      try {
+        const res = await fetch("/api/swapStarter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            starterId: selectedStarterId,
+            benchId: selectedBenchId,
+            leagueId,
+            userId
+          })
+        });
+
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          const error = await res.json();
+          alert("Error: " + error.message);
+        }
+      } catch (err) {
+        alert("Error al hacer el intercambio");
+      }
+    });
+
+    function showSwapModal(starter) {
+      if (!teamData) return;
+      
+      selectedStarterId = starter.id;
+      selectedBenchId = null;
+      
+      // Find bench players of the same position
+      const benchPlayersOfPosition = teamData.bench.filter(p => p.position === starter.position);
+      
+      // Update starter info
+      starterInfo.innerHTML = `
+        <div class="player-avatar">
+          <span class="position-badge">${starter.position}</span>
+        </div>
+        <div class="player-details">
+          <span class="player-name">${starter.name}</span>
+          <span class="player-team">${starter.team}</span>
+        </div>
+      `;
+      
+      // Update position name for no bench message
+      positionName.textContent = starter.position;
+      
+      if (benchPlayersOfPosition.length === 0) {
+        // No bench players available
+        benchOptions.classList.add('hidden');
+        noBenchMessage.classList.remove('hidden');
+        confirmSwapBtn.disabled = true;
+      } else {
+        // Show bench options
+        benchOptions.classList.remove('hidden');
+        noBenchMessage.classList.add('hidden');
+        
+        benchOptions.innerHTML = benchPlayersOfPosition.map(player => `
+          <div class="bench-option" data-player-id="${player.id}">
+            <div class="player-avatar">
+              <span class="position-badge">${player.position}</span>
+            </div>
+            <div class="player-details">
+              <span class="player-name">${player.name}</span>
+              <span class="player-team">${player.team}</span>
+            </div>
+            <div class="player-meta">
+              <span class="player-value">${player.value.toLocaleString()}€</span>
+            </div>
+          </div>
+        `).join('');
+        
+        // Add click handlers to bench options
+        benchOptions.querySelectorAll('.bench-option').forEach(option => {
+          option.addEventListener('click', () => {
+            // Remove previous selection
+            benchOptions.querySelectorAll('.bench-option').forEach(opt => 
+              opt.classList.remove('selected')
+            );
+            
+            // Select this option
+            option.classList.add('selected');
+            selectedBenchId = option.dataset.playerId;
+            confirmSwapBtn.disabled = false;
+          });
+        });
+        
+        confirmSwapBtn.disabled = true;
+      }
+      
+      swapModal.classList.remove('hidden');
+    }
+
+    function closeSwapModal() {
+      swapModal?.classList.add('hidden');
+      selectedStarterId = null;
+      selectedBenchId = null;
+      
+      // Clear selections
+      benchOptions?.querySelectorAll('.bench-option').forEach(opt => 
+        opt.classList.remove('selected')
+      );
+    }
+
+    function showPowerupModal(playerId) {
+      // Existing power-up modal functionality
+      powerupModal?.classList.remove('hidden');
+    }
+
+    function closePowerupModal() {
+      powerupModal?.classList.add('hidden');
+    }
+
+    // Backup function to extract team data from DOM
+    function extractTeamDataFromDOM() {
+      const starters = [];
+      const bench = [];
+      
+      // Extract starters from position players
+      document.querySelectorAll('.position-player').forEach(player => {
+        const id = player.dataset.playerId;
+        const position = player.dataset.position;
+        const name = player.querySelector('.portrait-name')?.textContent || '';
+        const team = player.querySelector('.portrait-team')?.textContent || '';
+        
+        if (id && position && name && team) {
+          starters.push({
+            id,
+            name,
+            position,
+            team,
+            value: 0, // No podemos extraer el valor desde el DOM del roster
+            powerUp: null
+          });
+        }
+      });
+      
+      // Extract bench from player cards
+      document.querySelectorAll('.player-card.bench').forEach(card => {
+        const id = card.dataset.playerId;
+        const position = card.dataset.position;
+        const name = card.querySelector('.player-name')?.textContent || '';
+        const team = card.querySelector('.player-team')?.textContent || '';
+        const valueText = card.querySelector('.player-value')?.textContent || '0';
+        const value = parseInt(valueText.replace(/[^\d]/g, '')) || 0;
+        
+        if (id && position && name && team) {
+          bench.push({
+            id,
+            name,
+            position,
+            team,
+            value,
+            powerUp: null
+          });
+        }
+      });
+      
+      return {
+        starters,
+        bench,
+        totalPlayers: starters.length + bench.length,
+        totalValue: 0,
+        budget: 0
+      };
+    }
+  });
 </script>
