@@ -5,172 +5,143 @@ import { supabase } from '../lib/supabase';
 
 const { id } = Astro.params;
 
-// Datos temporales de actividad - luego los conectaremos a Supabase
+// Datos temporales - luego los conectaremos a Supabase
+const user_id = 'e01005c8-1f15-4ca7-a1e9-7d423b84cc77';
+const league_id = '586b1a73-3247-48ff-a8fa-48d17139fdfa';
+
+// Obtener actividades de la liga desde Supabase
+const { data: activitiesRaw, error: activitiesError } = await supabase
+  .from('league_activity')
+  .select('*')
+  .eq('league_id', league_id)
+  .order('created_at', { ascending: false })
+  .limit(20);
+
+if (activitiesError) {
+  console.error('Error al cargar actividades:', activitiesError.message);
+  throw new Error(activitiesError.message);
+}
+
+// Función para mapear tipos de actividad a iconos y prioridades
+function getActivityConfig(activityType) {
+  const configs = {
+    'MATCH_WEEK_ENDED': { icon: '🏁', priority: 'high' },
+    'PLAYER_TRANSFER': { icon: '💰', priority: 'medium' },
+    'PLAYER_SOLD': { icon: '📤', priority: 'low' },
+    'TOP_PERFORMER': { icon: '🏆', priority: 'medium' },
+    'MARKET_ROUND_STARTED': { icon: '🔄', priority: 'high' },
+    'USER_JOINED': { icon: '👋', priority: 'low' },
+    'POWER_UP_USED': { icon: '⚡', priority: 'low' },
+    'MATCH_STARTED': { icon: '🎮', priority: 'high' },
+    'BUDGET_WARNING': { icon: '⚠️', priority: 'low' },
+    'WEEKLY_SUMMARY': { icon: '📊', priority: 'medium' },
+    'LEAGUE_MILESTONE': { icon: '🎉', priority: 'high' }
+  };
+  
+  return configs[activityType] || { icon: '📋', priority: 'low' };
+}
+
+// Función para generar títulos dinámicos
+function getActivityTitle(type, metadata) {
+  switch (type) {
+    case 'PLAYER_TRANSFER':
+      return `${metadata.user || 'Usuario'} fichó a ${metadata.player || 'jugador'}`;
+    case 'PLAYER_SOLD':
+      return `${metadata.user || 'Usuario'} vendió a ${metadata.player || 'jugador'}`;
+    case 'TOP_PERFORMER':
+      return `${metadata.user || 'Usuario'} lidera la jornada`;
+    case 'POWER_UP_USED':
+      return `${metadata.user || 'Usuario'} activó power-up`;
+    case 'USER_JOINED':
+      return `${metadata.user || 'Nuevo miembro'} se unió a la liga`;
+    case 'BUDGET_WARNING':
+      return `${metadata.user || 'Usuario'} tiene presupuesto bajo`;
+    case 'MATCH_WEEK_ENDED':
+      return `Jornada ${metadata.week || 'actual'} finalizada`;
+    case 'MATCH_STARTED':
+      return `Partidos de jornada ${metadata.week || 'actual'} iniciados`;
+    case 'MARKET_ROUND_STARTED':
+      return 'Nueva ronda de mercado';
+    case 'WEEKLY_SUMMARY':
+      return `Resumen de jornada ${metadata.week || 'actual'}`;
+    case 'LEAGUE_MILESTONE':
+      return metadata.title || 'Hito de la liga alcanzado';
+    default:
+      return 'Actividad de la liga';
+  }
+}
+
+// Procesar actividades
+const activities = activitiesRaw?.map(activity => {
+  const config = getActivityConfig(activity.activity_type);
+  let metadata = {};
+  
+  try {
+    metadata = activity.metadata ? JSON.parse(activity.metadata) : {};
+  } catch (e) {
+    console.warn('Error parsing metadata for activity:', activity.id);
+    metadata = {};
+  }
+
+  return {
+    id: activity.id,
+    type: activity.activity_type,
+    timestamp: activity.created_at,
+    title: getActivityTitle(activity.activity_type, metadata),
+    description: activity.description,
+    details: metadata,
+    icon: config.icon,
+    priority: config.priority,
+    userId: activity.user_id
+  };
+}) || [];
+
+// Calcular estadísticas dinámicas
+const todaysActivities = activities.filter(activity => {
+  const today = new Date().toDateString();
+  const activityDate = new Date(activity.timestamp).toDateString();
+  return today === activityDate;
+});
+
+const transfersToday = todaysActivities.filter(a => 
+  a.type === 'PLAYER_TRANSFER' || a.type === 'PLAYER_SOLD'
+).length;
+
+const matchesTotal = activities.filter(a => 
+  a.type === 'MATCH_STARTED' || a.type === 'MATCH_WEEK_ENDED'
+).length;
+
+// Datos de actividad con conteos dinámicos
 const activityData = {
-  activities: [
-    {
-      id: 1,
-      type: "MATCH_WEEK_ENDED",
-      timestamp: "2024-01-29T22:30:00Z",
-      title: "Jornada 3 finalizada",
-      description: "Todos los partidos de la jornada 3 han terminado. Las puntuaciones han sido actualizadas.",
-      icon: "🏁",
-      priority: "high"
+  activities,
+  filters: [
+    { id: "all", label: "Todas", count: activities.length },
+    { 
+      id: "transfers", 
+      label: "Fichajes", 
+      count: activities.filter(a => a.type === 'PLAYER_TRANSFER' || a.type === 'PLAYER_SOLD').length 
     },
-    {
-      id: 2,
-      type: "PLAYER_TRANSFER",
-      timestamp: "2024-01-29T20:15:00Z",
-      title: "daviddelolmo fichó a Caps",
-      description: "daviddelolmo ha ganado la subasta y fichado a Caps por 12,500€",
-      details: {
-        user: "daviddelolmo",
-        player: "Caps",
-        position: "MID",
-        team: "G2",
-        amount: 12000
-      },
-      icon: "💰",
-      priority: "medium"
+    { 
+      id: "matches", 
+      label: "Partidos", 
+      count: activities.filter(a => a.type === 'MATCH_WEEK_ENDED' || a.type === 'MATCH_STARTED' || a.type === 'TOP_PERFORMER').length 
     },
-    {
-      id: 3,
-      type: "PLAYER_SOLD",
-      timestamp: "2024-01-29T19:45:00Z",
-      title: "Player3 vendió a Humanoid",
-      description: "Player3 ha puesto a Humanoid en el mercado por 9,200€",
-      details: {
-        user: "Player3",
-        player: "Humanoid",
-        position: "MID",
-        team: "FNC",
-        amount: 9200
-      },
-      icon: "📤",
-      priority: "low"
+    { 
+      id: "market", 
+      label: "Mercado", 
+      count: activities.filter(a => a.type === 'MARKET_ROUND_STARTED' || a.type === 'POWER_UP_USED' || a.type === 'BUDGET_WARNING').length 
     },
-    {
-      id: 4,
-      type: "TOP_PERFORMER",
-      timestamp: "2024-01-29T18:30:00Z",
-      title: "Player2 lidera la jornada",
-      description: "Player2 ha obtenido 312 puntos en la jornada 3, el mejor resultado de la semana.",
-      details: {
-        user: "Player2",
-        points: 312,
-        week: 3
-      },
-      icon: "🏆",
-      priority: "medium"
-    },
-    {
-      id: 5,
-      type: "MARKET_ROUND_STARTED",
-      timestamp: "2024-01-29T12:00:00Z",
-      title: "Nueva ronda de mercado",
-      description: "Ha comenzado la ronda 4 del mercado. 3 nuevos jugadores disponibles para subasta.",
-      details: {
-        round: 4,
-        playersCount: 3
-      },
-      icon: "🔄",
-      priority: "high"
-    },
-    {
-      id: 6,
-      type: "USER_JOINED",
-      timestamp: "2024-01-28T16:20:00Z",
-      title: "Nuevo miembro",
-      description: "Player6 se ha unido a la liga",
-      details: {
-        user: "Player6"
-      },
-      icon: "👋",
-      priority: "low"
-    },
-    {
-      id: 7,
-      type: "POWER_UP_USED",
-      timestamp: "2024-01-28T14:10:00Z",
-      title: "daviddelolmo activó power-up",
-      description: "daviddelolmo ha aplicado el power-up CARRY a Elyoya",
-      details: {
-        user: "daviddelolmo",
-        player: "Elyoya",
-        powerUp: "CARRY"
-      },
-      icon: "⚡",
-      priority: "low"
-    },
-    {
-      id: 8,
-      type: "MATCH_STARTED",
-      timestamp: "2024-01-28T18:00:00Z",
-      title: "Partidos de jornada 3 iniciados",
-      description: "Han comenzado los partidos de la jornada 3. ¡Que empiece la acción!",
-      icon: "🎮",
-      priority: "high"
-    },
-    {
-      id: 9,
-      type: "BUDGET_WARNING",
-      timestamp: "2024-01-27T22:30:00Z",
-      title: "Player1 tiene presupuesto bajo",
-      description: "Player1 solo tiene 1,200€ restantes en su presupuesto",
-      details: {
-        user: "Player1",
-        budget: 1200
-      },
-      icon: "⚠️",
-      priority: "low"
-    },
-    {
-      id: 10,
-      type: "PLAYER_TRANSFER",
-      timestamp: "2024-01-27T20:45:00Z",
-      title: "Player8 fichó a Razork",
-      description: "Player8 ha ganado la subasta y fichado a Razork por 7,800€",
-      details: {
-        user: "Player8",
-        player: "Razork",
-        position: "JUNGLE",
-        team: "FNC",
-        amount: 7800
-      },
-      icon: "💰",
-      priority: "medium"
-    },
-    {
-      id: 11,
-      type: "WEEKLY_SUMMARY",
-      timestamp: "2024-01-27T12:00:00Z",
-      title: "Resumen de jornada 2",
-      description: "Jornada 2 completada. ProGamer mantiene el liderato con 1,847 puntos totales.",
-      details: {
-        week: 2,
-        leader: "ProGamer",
-        points: 1847
-      },
-      icon: "📊",
-      priority: "medium"
-    },
-    {
-      id: 12,
-      type: "LEAGUE_MILESTONE",
-      timestamp: "2024-01-26T15:30:00Z",
-      title: "¡Liga completamente llena!",
-      description: "La liga ha alcanzado el máximo de 8 participantes. ¡Que comience la competición!",
-      icon: "🎉",
-      priority: "high"
+    { 
+      id: "users", 
+      label: "Usuarios", 
+      count: activities.filter(a => a.type === 'USER_JOINED' || a.type === 'WEEKLY_SUMMARY' || a.type === 'LEAGUE_MILESTONE').length 
     }
   ],
-  filters: [
-    { id: "all", label: "Todas", count: 12 },
-    { id: "transfers", label: "Fichajes", count: 2 },
-    { id: "matches", label: "Partidos", count: 3 },
-    { id: "market", label: "Mercado", count: 3 },
-    { id: "users", label: "Usuarios", count: 4 }
-  ]
+  stats: {
+    transfersToday,
+    matchesTotal,
+    activeMembers: 8 // Esto podrías calcularlo desde league_participants
+  }
 };
 ---
 
@@ -281,21 +252,21 @@ const activityData = {
             <div class="stat-item">
               <div class="stat-icon">💰</div>
               <div class="stat-info">
-                <span class="stat-value">2</span>
+                <span class="stat-value">{activityData.stats.transfersToday}</span>
                 <span class="stat-label">Fichajes hoy</span>
               </div>
             </div>
             <div class="stat-item">
               <div class="stat-icon">🎮</div>
               <div class="stat-info">
-                <span class="stat-value">5</span>
+                <span class="stat-value">{activityData.stats.matchesTotal}</span>
                 <span class="stat-label">Partidos jugados</span>
               </div>
             </div>
             <div class="stat-item">
               <div class="stat-icon">👥</div>
               <div class="stat-info">
-                <span class="stat-value">8</span>
+                <span class="stat-value">{activityData.stats.activeMembers}</span>
                 <span class="stat-label">Miembros activos</span>
               </div>
             </div>
@@ -314,113 +285,134 @@ const activityData = {
         </div>
         
         <div class="activity-timeline">
-          {activityData.activities.map((activity, index) => (
-            <div class={`activity-item ${activity.priority}`} data-type={activity.type}>
-              <div class="activity-timeline-marker">
-                <div class="timeline-dot"></div>
-                {index < activityData.activities.length - 1 && <div class="timeline-line"></div>}
+          {activityData.activities.length === 0 ? (
+            <div class="no-activities">
+              <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 6v6l4 2"></path>
+                </svg>
+                <p>No hay actividad reciente</p>
+                <small>La actividad aparecerá aquí conforme sucedan eventos en la liga</small>
               </div>
-              
-              <div class="activity-card">
-                <div class="activity-header">
-                  <div class="activity-icon">{activity.icon}</div>
-                  <div class="activity-meta">
-                    <h4 class="activity-title">{activity.title}</h4>
-                    <span class="activity-time">
-                      {new Date(activity.timestamp).toLocaleString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </span>
-                  </div>
-                  <div class={`priority-badge ${activity.priority}`}>
-                    {activity.priority === 'high' && (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                      </svg>
-                    )}
-                  </div>
+            </div>
+          ) : (
+            activityData.activities.map((activity, index) => (
+              <div class={`activity-item ${activity.priority}`} data-type={activity.type}>
+                <div class="activity-timeline-marker">
+                  <div class="timeline-dot"></div>
+                  {index < activityData.activities.length - 1 && <div class="timeline-line"></div>}
                 </div>
                 
-                <div class="activity-content">
-                  <p class="activity-description">{activity.description}</p>
+                <div class="activity-card">
+                  <div class="activity-header">
+                    <div class="activity-icon">{activity.icon}</div>
+                    <div class="activity-meta">
+                      <h4 class="activity-title">{activity.title}</h4>
+                      <span class="activity-time">
+                        {new Date(activity.timestamp).toLocaleString('es-ES', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <div class={`priority-badge ${activity.priority}`}>
+                      {activity.priority === 'high' && (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="12" y1="8" x2="12" y2="12"></line>
+                          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                      )}
+                    </div>
+                  </div>
                   
-                  {activity.details && (
-                    <div class="activity-details">
-                      {activity.type === 'PLAYER_TRANSFER' && (
-                        <div class="transfer-details">
-                          <div class="player-info">
-                            <span class="player-position">{activity.details.position}</span>
-                            <span class="player-name">{activity.details.player}</span>
-                            <span class="player-team">({activity.details.team})</span>
+                  <div class="activity-content">
+                    <p class="activity-description">{activity.description}</p>
+                    
+                    {activity.details && Object.keys(activity.details).length > 0 && (
+                      <div class="activity-details">
+                        {activity.type === 'PLAYER_TRANSFER' && (
+                          <div class="transfer-details">
+                            <div class="player-info">
+                              <span class="player-position">{activity.details.position || 'N/A'}</span>
+                              <span class="player-name">{activity.details.player || 'Jugador'}</span>
+                              <span class="player-team">({activity.details.team || 'Equipo'})</span>
+                            </div>
+                            <div class="transfer-amount">{(activity.details.amount || 0).toLocaleString()}€</div>
                           </div>
-                          <div class="transfer-amount">{activity.details.amount.toLocaleString()}€</div>
-                        </div>
-                      )}
-                      
-                      {activity.type === 'PLAYER_SOLD' && (
-                        <div class="transfer-details">
-                          <div class="player-info">
-                            <span class="player-position">{activity.details.position}</span>
-                            <span class="player-name">{activity.details.player}</span>
-                            <span class="player-team">({activity.details.team})</span>
+                        )}
+                        
+                        {activity.type === 'PLAYER_SOLD' && (
+                          <div class="transfer-details">
+                            <div class="player-info">
+                              <span class="player-position">{activity.details.position || 'N/A'}</span>
+                              <span class="player-name">{activity.details.player || 'Jugador'}</span>
+                              <span class="player-team">({activity.details.team || 'Equipo'})</span>
+                            </div>
+                            <div class="transfer-amount sell">{(activity.details.amount || 0).toLocaleString()}€</div>
                           </div>
-                          <div class="transfer-amount sell">{activity.details.amount.toLocaleString()}€</div>
-                        </div>
-                      )}
-                      
-                      {activity.type === 'TOP_PERFORMER' && (
-                        <div class="performance-details">
-                          <div class="performance-stat">
-                            <span class="stat-label">Puntos obtenidos:</span>
-                            <span class="stat-value">{activity.details.points}</span>
+                        )}
+                        
+                        {activity.type === 'TOP_PERFORMER' && activity.details.points && (
+                          <div class="performance-details">
+                            <div class="performance-stat">
+                              <span class="stat-label">Puntos obtenidos:</span>
+                              <span class="stat-value">{activity.details.points}</span>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      
-                      {activity.type === 'BUDGET_WARNING' && (
-                        <div class="budget-details">
-                          <div class="budget-warning">
-                            <span class="warning-text">Presupuesto restante:</span>
-                            <span class="budget-amount">{activity.details.budget.toLocaleString()}€</span>
+                        )}
+                        
+                        {activity.type === 'BUDGET_WARNING' && activity.details.budget && (
+                          <div class="budget-details">
+                            <div class="budget-warning">
+                              <span class="warning-text">Presupuesto restante:</span>
+                              <span class="budget-amount">{activity.details.budget.toLocaleString()}€</span>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {(activity.type === 'PLAYER_TRANSFER' || activity.type === 'TOP_PERFORMER') && (
+                    <div class="activity-actions">
+                      <button class="action-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        Ver detalles
+                      </button>
                     </div>
                   )}
                 </div>
-                
-                {(activity.type === 'PLAYER_TRANSFER' || activity.type === 'TOP_PERFORMER') && (
-                  <div class="activity-actions">
-                    <button class="action-btn">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                      </svg>
-                      Ver detalles
-                    </button>
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         
-        <div class="load-more">
-          <button class="load-more-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6,9 12,15 18,9"></polyline>
-            </svg>
-            Cargar más actividad
-          </button>
-        </div>
+        {activityData.activities.length > 0 && (
+          <div class="load-more">
+            <button class="load-more-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6,9 12,15 18,9"></polyline>
+              </svg>
+              Cargar más actividad
+            </button>
+          </div>
+        )}
       </div>
     </div>
   </div>
+
+  <!-- Hidden data for JavaScript -->
+  <script define:vars={{activityData, league_id}}>
+    window.activityData = activityData;
+    window.leagueId = league_id;
+  </script>
 </DefaultLayout>
 
 <style>
@@ -1022,6 +1014,37 @@ const activityData = {
     height: 12px;
   }
 
+  /* No Activities State */
+  .no-activities {
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .empty-state svg {
+    width: 48px;
+    height: 48px;
+    color: #9ca3af;
+  }
+
+  .empty-state p {
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+    font-size: 1.125rem;
+  }
+
+  .empty-state small {
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+
   /* Load More */
   .load-more {
     padding: 1.5rem;
@@ -1229,28 +1252,10 @@ const activityData = {
     refreshButton.style.opacity = '0.6';
     refreshButton.style.pointerEvents = 'none';
     
-    // Simulate refresh
+    // Reload the page to get fresh data
     setTimeout(() => {
-      refreshButton.style.opacity = '1';
-      refreshButton.style.pointerEvents = 'auto';
-      
-      // In a real app, you would fetch new data here
-      console.log('Activity refreshed');
-      
-      // Show a brief success indicator
-      const originalText = refreshButton.innerHTML;
-      refreshButton.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-          <polyline points="22,4 12,14.01 9,11.01"></polyline>
-        </svg>
-        Actualizado
-      `;
-      
-      setTimeout(() => {
-        refreshButton.innerHTML = originalText;
-      }, 2000);
-    }, 1000);
+      window.location.reload();
+    }, 500);
   }
 
   // Load more activities
@@ -1259,13 +1264,12 @@ const activityData = {
     loadMoreButton.style.opacity = '0.6';
     loadMoreButton.disabled = true;
     
-    // Simulate loading more activities
+    // In a real implementation, you would fetch more activities from the API
     setTimeout(() => {
       loadMoreButton.style.opacity = '1';
       loadMoreButton.disabled = false;
       
-      // In a real app, you would append new activity items here
-      console.log('More activities loaded');
+      console.log('More activities would be loaded here');
     }, 1500);
   }
 
@@ -1274,18 +1278,7 @@ const activityData = {
     const isEnabled = notificationsToggle.checked;
     console.log('Notifications:', isEnabled ? 'enabled' : 'disabled');
     
-    // In a real app, you would save this preference
-    // and handle push notification subscription
-  }
-
-  // Initialize relative time updates
-  function updateRelativeTimes() {
-    const timeElements = document.querySelectorAll('.activity-time');
-    
-    timeElements.forEach(element => {
-      // In a real app, you would calculate and update relative times
-      // like "hace 2 horas", "ayer", etc.
-    });
+    // In a real app, you would save this preference to the database
   }
 
   // Event listeners
@@ -1309,36 +1302,17 @@ const activityData = {
     // Action button clicks
     document.querySelectorAll('.action-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        // In a real app, this would open a detailed view
         console.log('View details clicked');
       });
     });
 
     // Refresh button
-    refreshButton.addEventListener('click', refreshActivity);
+    refreshButton?.addEventListener('click', refreshActivity);
 
     // Load more button
-    loadMoreButton.addEventListener('click', loadMoreActivities);
+    loadMoreButton?.addEventListener('click', loadMoreActivities);
 
     // Notifications toggle
-    notificationsToggle.addEventListener('change', toggleNotifications);
-
-    // Update relative times every minute
-    setInterval(updateRelativeTimes, 60000);
-
-    // Auto-refresh every 5 minutes
-    setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        refreshActivity();
-      }
-    }, 300000);
-  });
-
-  // Handle visibility change for auto-refresh
-  document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'visible') {
-      // Page became visible, refresh if it's been a while
-      // In a real app, you'd check the last update time
-    }
+    notificationsToggle?.addEventListener('change', toggleNotifications);
   });
 </script>

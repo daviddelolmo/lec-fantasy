@@ -9,7 +9,7 @@ const { id } = Astro.params;
 const user_id = 'e01005c8-1f15-4ca7-a1e9-7d423b84cc77';
 const league_id = '586b1a73-3247-48ff-a8fa-48d17139fdfa';
 
-// Obtener el equipo del usuario
+// Obtener el equipo del usuario y su presupuesto
 const { data: userTeamRaw, error } = await supabase
   .from('user_teams')
   .select('player_id, is_starter, lec_players(id, name, position, team, market_value)')
@@ -19,6 +19,18 @@ const { data: userTeamRaw, error } = await supabase
 if (error) {
   console.error('Error al cargar el equipo:', error.message);
   throw new Error(error.message);
+}
+
+const { data: userBudgetData, error: budgetError } = await supabase
+  .from('league_participants')
+  .select('budget_remaining')
+  .eq('user_id', user_id)
+  .eq('league_id', league_id)
+  .single();
+
+if (budgetError) {
+  console.error('Error al cargar el presupuesto:', budgetError.message);
+  throw new Error(budgetError.message);
 }
 
 // Mapear a estructura de teamData
@@ -31,16 +43,24 @@ for (const entry of userTeamRaw) {
 
   if (!player) continue;
 
+  // Validar y convertir market_value
+  const marketValue = player.market_value 
+    ? (typeof player.market_value === 'number' ? player.market_value : parseInt(player.market_value))
+    : 0;
+
   const playerData = {
     id: player.id,
     name: player.name,
     position: player.position,
     team: player.team,
-    value: player.market_value,
+    value: marketValue,
     powerUp: null
   };
 
-  totalValue += player.value;
+  // Sumar solo si es un número válido
+  if (!isNaN(marketValue)) {
+    totalValue += marketValue;
+  }
 
   if (entry.is_starter) {
     starters.push(playerData);
@@ -49,10 +69,17 @@ for (const entry of userTeamRaw) {
   }
 }
 
+// Validar budget_remaining
+const budgetRemaining = userBudgetData?.budget_remaining 
+  ? (typeof userBudgetData.budget_remaining === 'number' 
+      ? userBudgetData.budget_remaining 
+      : parseInt(userBudgetData.budget_remaining))
+  : 0;
+
 const teamData = {
   totalPlayers: starters.length + bench.length,
-  totalValue,
-  budget: 100000 - totalValue, // Ajusta esta lógica según reglas
+  totalValue: isNaN(totalValue) ? 0 : totalValue,
+  budget: isNaN(budgetRemaining) ? 0 : budgetRemaining,
   starters,
   bench
 };
@@ -140,7 +167,7 @@ const teamData = {
             </svg>
           </div>
           <div class="summary-info">
-            <span class="summary-value">{teamData.totalValue.toLocaleString()}€</span>
+            <span class="summary-value">{(userTeamRaw?.reduce((sum, entry) => sum + (entry.lec_players?.market_value || 0), 0) || 0).toLocaleString()}€</span>
             <span class="summary-label">Valor total</span>
           </div>
         </div>
@@ -155,7 +182,7 @@ const teamData = {
             </svg>
           </div>
           <div class="summary-info">
-            <span class="summary-value">{teamData.budget.toLocaleString()}€</span>
+            <span class="summary-value">{(userBudgetData?.budget_remaining || 0).toLocaleString()}€</span>
             <span class="summary-label">Presupuesto</span>
           </div>
         </div>
